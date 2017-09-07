@@ -6,118 +6,23 @@ Helper script to automate running transfers through Archivematica.
 """
 
 from __future__ import print_function, unicode_literals
-import argparse
 import ast
 import base64
 import logging
-import logging.config  # Has to be imported separately
 import os
 import requests
-from six.moves import configparser
 import subprocess
 import sys
 import time
 
-from . import models
-
-try:
-    from os import fsencode, fsdecode
-except ImportError:
-    # Cribbed & modified from Python3's OS module to support Python2
-    def fsencode(filename):
-        encoding = sys.getfilesystemencoding()
-        if isinstance(filename, str):
-            return filename
-        elif isinstance(filename, unicode):
-            return filename.encode(encoding)
-        else:
-            raise TypeError("expect bytes or str, not %s" % type(filename).__name__)
-
-    def fsdecode(filename):
-        encoding = sys.getfilesystemencoding()
-        if isinstance(filename, unicode):
-            return filename
-        elif isinstance(filename, str):
-            return filename.decode(encoding)
-        else:
-            raise TypeError("expect bytes or str, not %s" % type(filename).__name__)
+from transfers import utils, models, offload, storage
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(THIS_DIR)
 
-LOGGER = logging.getLogger('transfer')
-
-CONFIG_FILE = None
-
-
-def get_setting(setting, default=None):
-    config = configparser.SafeConfigParser()
-    try:
-        config.read(CONFIG_FILE)
-        return config.get('transfers', setting)
-    except Exception:
-        return default
-
-
-def setup(config_file, log_level):
-    global CONFIG_FILE
-    CONFIG_FILE = config_file
-    models.init(get_setting('databasefile', os.path.join(THIS_DIR, 'transfers.db')))
-
-    # Configure logging
-    default_logfile = os.path.join(THIS_DIR, 'automate-transfer.log')
-    CONFIG = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'formatters': {
-            'default': {
-                'format': '%(levelname)-8s  %(asctime)s  %(filename)s:%(lineno)-4s %(message)s',
-                'datefmt': '%Y-%m-%d %H:%M:%S',
-            },
-        },
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-                'formatter': 'default',
-            },
-            'file': {
-                'class': 'logging.handlers.RotatingFileHandler',
-                'formatter': 'default',
-                'filename': get_setting('logfile', default_logfile),
-                'backupCount': 2,
-                'maxBytes': 10 * 1024,
-            },
-        },
-        'loggers': {
-            'transfer': {
-                'level': log_level,
-                'handlers': ['console', 'file'],
-            },
-        },
-    }
-    logging.config.dictConfig(CONFIG)
-
-
-def _call_url_json(url, params):
-    """
-    Helper to GET a URL where the expected response is 200 with JSON.
-
-    :param str url: URL to call
-    :param dict params: Params to pass to requests.get
-    :returns: Dict of the returned JSON or None
-    """
-    LOGGER.debug('URL: %s; params: %s;', url, params)
-    response = requests.get(url, params=params)
-    LOGGER.debug('Response: %s', response)
-    if not response.ok:
-        LOGGER.warning('Request to %s returned %s %s', url, response.status_code, response.reason)
-        LOGGER.debug('Response: %s', response.text)
-        return None
-    try:
-        return response.json()
-    except ValueError:  # JSON could not be decoded
-        LOGGER.warning('Could not parse JSON from response: %s', response.text)
-        return None
+LOG_NAME = 'transfer'
+LOGGER = logging.getLogger(LOG_NAME)
+SOURCE_LOCATION_PATH = SIZE_SHARED_LOCATION_INFO = None
 
 
 def get_status(am_url, am_user, am_api_key, unit_uuid, unit_type, session, hide_on_complete=False):
@@ -132,18 +37,17 @@ def get_status(am_url, am_user, am_api_key, unit_uuid, unit_type, session, hide_
     # Get status
     url = am_url + '/api/' + unit_type + '/status/' + unit_uuid + '/'
     params = {'username': am_user, 'api_key': am_api_key}
-    unit_info = _call_url_json(url, params)
+    unit_info = utils.call_url_json(url, params)
 
-    # If complete, hide in dashboard
-    if hide_on_complete and unit_info and unit_info['status'] == 'COMPLETE':
-        LOGGER.info('Hiding %s %s in dashboard', unit_type, unit_uuid)
-        url = am_url + '/api/' + unit_type + '/' + unit_uuid + '/delete/'
+    # If Transfer is complete, get the SIP's status
+    if unit_info and unit_type == 'transfer' and unit_info['status'] == 'COMPLETE' and unit_info['sip_uuid'] != 'BACKLOG':
+        # If complete, hide in dashboard
+        LOGGER.info('Hiding transfer %s in dashboard', unit_uuid)
+        url = am_url + '/api/transfer/' + unit_uuid + '/delete/'
         LOGGER.debug('Method: DELETE; URL: %s; params: %s;', url, params)
         response = requests.delete(url, params=params)
         LOGGER.debug('Response: %s', response)
 
-    # If Transfer is complete, get the SIP's status
-    if unit_info and unit_type == 'transfer' and unit_info['status'] == 'COMPLETE' and unit_info['sip_uuid'] != 'BACKLOG':
         LOGGER.info('%s is a complete transfer, fetching SIP %s status.', unit_uuid, unit_info['sip_uuid'])
         # Update DB to refer to this one
         db_unit = session.query(models.Unit).filter_by(unit_type=unit_type, uuid=unit_uuid).one()
@@ -151,15 +55,7 @@ def get_status(am_url, am_user, am_api_key, unit_uuid, unit_type, session, hide_
         db_unit.uuid = unit_info['sip_uuid']
         # Get SIP status
         url = am_url + '/api/ingest/status/' + unit_info['sip_uuid'] + '/'
-        unit_info = _call_url_json(url, params)
-
-        # If complete, hide in dashboard
-        if hide_on_complete and unit_info and unit_info['status'] == 'COMPLETE':
-            LOGGER.info('Hiding SIP %s in dashboard', db_unit.uuid)
-            url = am_url + '/api/ingest/' + db_unit.uuid + '/delete/'
-            LOGGER.debug('Method: DELETE; URL: %s; params: %s;', url, params)
-            response = requests.delete(url, params=params)
-            LOGGER.debug('Response: %s', response)
+        unit_info = utils.call_url_json(url, params)
 
     return unit_info
 
@@ -185,7 +81,7 @@ def get_accession_id(dirname):
     if p.returncode != 0:
         LOGGER.info('Error running %s %s: RC: %s; stdout: %s; stderr: %s', script_path, dirname, p.returncode, output, err)
         return None
-    output = fsdecode(output)
+    output = utils.fsdecode(output)
     try:
         return ast.literal_eval(output)
     except Exception:
@@ -225,6 +121,31 @@ def run_scripts(directory, *args):
             LOGGER.warning('stderr: %s', stderr)
 
 
+def get_location_info(ss_url, ss_user, ss_api_key, ts_location_uuid, key=None):
+    """
+    Retrieve the desired value-by-key from the location
+    :param ss_url: URL of the Storage Service to query
+    :param ss_user: User on the Storage Service for authentication
+    :param ss_api_key: API key for user on the Storage Service for authentication
+    :param ts_location_uuid: UUID of the transfer source Location
+    :param key: key of the value to return
+    :return: the key-value pair
+    """
+    url = ss_url + '/api/v2/location/' + ts_location_uuid + '/'
+    params = {
+        'username': ss_user,
+        'api_key': ss_api_key,
+    }
+    location_info = utils.call_url_json(url, params)
+    if location_info is None:
+        return ''
+    else:
+        if key:
+            return location_info[key]
+        else:
+            return location_info
+
+
 def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, path_prefix, depth, completed, see_files):
     """
     Helper to find the first directory that doesn't have an associated transfer.
@@ -239,6 +160,15 @@ def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, path_prefix
     :param bool see_files: Return files as well as folders to become transfers.
     :returns: Path relative to TS Location of the new transfer
     """
+    global SOURCE_LOCATION_PATH
+    if SOURCE_LOCATION_PATH is None:
+        SOURCE_LOCATION_PATH = get_location_info(ss_url, ss_user, ss_api_key, ts_location_uuid, 'path')
+    global SIZE_SHARED_LOCATION_INFO
+    if SIZE_SHARED_LOCATION_INFO is None:
+        shared_location_uuid = utils.get_setting('shared_location_uuid')
+        if shared_location_uuid:
+            SIZE_SHARED_LOCATION_INFO = get_location_info(ss_url, ss_user, ss_api_key, shared_location_uuid)
+
     # Get sorted list from source dir
     url = ss_url + '/api/v2/location/' + ts_location_uuid + '/browse/'
     params = {
@@ -247,7 +177,7 @@ def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, path_prefix
     }
     if path_prefix:
         params['path'] = base64.b64encode(path_prefix)
-    browse_info = _call_url_json(url, params)
+    browse_info = utils.call_url_json(url, params)
     if browse_info is None:
         return None
     if see_files:
@@ -262,6 +192,11 @@ def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, path_prefix
         # Find the directories that are not already in the DB using sets
         entries = set(entries) - completed
         LOGGER.debug("New transfer candidates: %s", entries)
+        # Offloaded
+        entries = offload.main(SOURCE_LOCATION_PATH, entries, LOG_NAME)
+        if SIZE_SHARED_LOCATION_INFO and 'quota' in SIZE_SHARED_LOCATION_INFO and SIZE_SHARED_LOCATION_INFO['quota']:
+            entries = storage.main(SIZE_SHARED_LOCATION_INFO['path'], long(SIZE_SHARED_LOCATION_INFO['quota']),
+                                   SOURCE_LOCATION_PATH, entries, LOG_NAME, int(utils.get_setting('storage_cap', 1)))
         # Sort, take the first
         entries = sorted(list(entries))
         if not entries:
@@ -314,11 +249,11 @@ def start_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, ts_path, depth
         'name': target_name,
         'type': transfer_type,
         'accession': accession,
-        'paths[]': [base64.b64encode(fsencode(ts_location_uuid) + b':' + target)],
+        'paths[]': [base64.b64encode(utils.fsencode(ts_location_uuid) + b':' + target)],
         'row_ids[]': [''],
     }
     LOGGER.debug('URL: %s; Params: %s; Data: %s', url, params, data)
-    response = requests.post(url, params=params, data=data)
+    response = requests.post(url, params=params, data=data, verify=(utils.get_setting('ssl_verification', 'True')) == 'True')
     LOGGER.debug('Response: %s', response)
     try:
         resp_json = response.json()
@@ -374,18 +309,18 @@ def approve_transfer(directory_name, url, am_api_key, am_user):
     # List available transfers
     get_url = url + "/api/transfer/unapproved"
     params = {'username': am_user, 'api_key': am_api_key}
-    waiting_transfers = _call_url_json(get_url, params)
+    waiting_transfers = utils.call_url_json(get_url, params)
     if waiting_transfers is None:
         LOGGER.warning('No waiting transfer ')
         return None
     for a in waiting_transfers['results']:
         LOGGER.debug("Found waiting transfer: %s", a['directory'])
-        if fsencode(a['directory']) == directory_name:
+        if utils.fsencode(a['directory']) == directory_name:
             # Post to approve transfer
             post_url = url + "/api/transfer/approve/"
             params = {'username': am_user, 'api_key': am_api_key, 'type': a['type'], 'directory': directory_name}
             LOGGER.debug('URL: %s; Params: %s;', post_url, params)
-            r = requests.post(post_url, data=params)
+            r = requests.post(post_url, data=params, verify=(utils.get_setting('ssl_verification', 'True')) == 'True')
             LOGGER.debug('Response: %s', r)
             LOGGER.debug('Response text: %s', r.text)
             if r.status_code != 200:
@@ -397,134 +332,82 @@ def approve_transfer(directory_name, url, am_api_key, am_user):
         return None
 
 
-def main(am_user, am_api_key, ss_user, ss_api_key, ts_uuid, ts_path, depth, am_url, ss_url, transfer_type, see_files, hide_on_complete=False, config_file=None, log_level='INFO'):
-
-    setup(config_file, log_level)
+def main(am_user, am_api_key, ss_user, ss_api_key, ts_uuid, ts_path, depth, am_url, ss_url, transfer_type, see_files,
+         hide_on_complete=False, config_file=None, log_level='INFO', **kwargs):
+    utils.setup(config_file, LOG_NAME, log_level)
     LOGGER.info("Waking up")
 
     session = models.Session()
 
     # Check for evidence that this is already running
-    default_pidfile = os.path.join(THIS_DIR, 'pid.lck')
-    pid_file = get_setting('pidfile', default_pidfile)
-    try:
-        # Open PID file only if it doesn't exist for read/write
-        f = os.fdopen(os.open(pid_file, os.O_CREAT | os.O_EXCL | os.O_RDWR), 'r+')
-    except:
-        LOGGER.info('This script is already running. To override this behaviour and start a new run, remove %s', pid_file)
+    default_pidfile = os.path.join(THIS_DIR, LOG_NAME + '.pid.lck')
+    pid_file = utils.get_setting('pidfile', default_pidfile)
+    if not utils.set_pid_file(pid_file):
         return 0
-    else:
-        pid = os.getpid()
-        f.write(str(pid))
-        f.close()
 
-    # Check status of last unit
-    current_unit = None
+    transfers_limit = transfers_remaining = int(utils.get_setting('transfers_limit', 1))
     try:
-        current_unit = session.query(models.Unit).filter_by(current=True).one()
+        current_units = session.query(models.Unit).filter_by(current=True).limit(transfers_limit).all()
+    except Exception:
+        LOGGER.debug('Query failed for current units', exc_info=True)
+        LOGGER.info('Assuming new run.')
+
+    for current_unit in current_units:
+        LOGGER.info('Current unit: %s', current_unit)
+
         unit_uuid = current_unit.uuid
         unit_type = current_unit.unit_type
-    except Exception:
-        LOGGER.debug('No current unit', exc_info=True)
-        unit_uuid = unit_type = ''
-        LOGGER.info('Current unit: unknown.  Assuming new run.')
-        status = 'UNKNOWN'
-    else:
-        LOGGER.info('Current unit: %s', current_unit)
+
         # Get status
         status_info = get_status(am_url, am_user, am_api_key, unit_uuid, unit_type, session, hide_on_complete)
         LOGGER.info('Status info: %s', status_info)
         if not status_info:
             LOGGER.error('Could not fetch status for %s. Exiting.', unit_uuid)
-            os.remove(pid_file)
-            return 1
+            break
+
         status = status_info.get('status')
         current_unit.status = status
-    # If processing, exit
-    if status == 'PROCESSING':
-        LOGGER.info('Current transfer still processing, nothing to do.')
-        session.commit()
-        os.remove(pid_file)
-        return 0
-    # If waiting on input, send email, exit
-    elif status == 'USER_INPUT':
-        LOGGER.info('Waiting on user input, running scripts in user-input directory.')
-        # TODO What inputs do we want?
-        microservice = status_info.get('microservice', '')
-        run_scripts(
-            'user-input',
-            microservice,  # Current microservice name
-            str(microservice != current_unit.microservice),  # String True or False if this is the first time at this wait point
-            status_info['path'],  # Absolute path
-            status_info['uuid'],  # SIP/Transfer UUID
-            status_info['name'],  # SIP/Transfer name
-            status_info['type'],  # SIP or transfer
-        )
-        current_unit.microservice = microservice
-        session.commit()
-        os.remove(pid_file)
-        return 0
-    # If failed, rejected, completed etc, start new transfer
-    if current_unit:
+
+        if status == 'PROCESSING':
+            LOGGER.info('Current transfer still processing, nothing to do.')
+            transfers_remaining -= 1
+            continue
+
+        # If waiting on input, send email, exit
+        if status == 'USER_INPUT':
+            LOGGER.info('Waiting on user input, running scripts in user-input directory.')
+            transfers_remaining -= 1
+            # TODO What inputs do we want?
+            microservice = status_info.get('microservice', '')
+            run_scripts(
+                'user-input',
+                microservice,  # Current microservice name
+                str(microservice != current_unit.microservice),
+                # String True or False if this is the first time at this wait point
+                status_info['path'],  # Absolute path
+                status_info['uuid'],  # SIP/Transfer UUID
+                status_info['name'],  # SIP/Transfer name
+                status_info['type'],  # SIP or transfer
+            )
+            current_unit.microservice = microservice
+            continue
+
+        # If failed, rejected, completed etc, start new transfer
         current_unit.current = False
-    new_transfer = start_transfer(ss_url, ss_user, ss_api_key, ts_uuid, ts_path, depth, am_url, am_user, am_api_key, transfer_type, see_files, session)
+
+    LOGGER.info("%s of %s transfers to process.", transfers_remaining, transfers_limit)
+    for i in range(transfers_remaining):
+        LOGGER.info("Starting transfer %s of %s", i + 1, transfers_remaining)
+        new_transfer = start_transfer(ss_url, ss_user, ss_api_key, ts_uuid, ts_path, depth, am_url, am_user, am_api_key,
+                                      transfer_type, see_files, session)
+        if not new_transfer:
+            LOGGER.info("No new transfers found.")
+            break
 
     session.commit()
     os.remove(pid_file)
-    return 0 if new_transfer else 1
+    return 0  # always return a zero.
 
 
 if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-u', '--user', metavar='USERNAME', required=True, help='Username of the Archivematica dashboard user to authenticate as.')
-    parser.add_argument('-k', '--api-key', metavar='KEY', required=True, help='API key of the Archivematica dashboard user.')
-    parser.add_argument('--ss-user', metavar='USERNAME', required=True, help='Username of the Storage Service user to authenticate as.')
-    parser.add_argument('--ss-api-key', metavar='KEY', required=True, help='API key of the Storage Service user.')
-    parser.add_argument('-t', '--transfer-source', metavar='UUID', required=True, help='Transfer Source Location UUID to fetch transfers from.')
-    parser.add_argument('--transfer-path', metavar='PATH', help='Relative path within the Transfer Source. Default: ""', type=fsencode, default=b'')  # Convert to bytes from unicode str provided by command line
-    parser.add_argument('--depth', '-d', help='Depth to create the transfers from relative to the transfer source location and path. Default of 1 creates transfers from the children of transfer-path.', type=int, default=1)
-    parser.add_argument('--am-url', '-a', metavar='URL', help='Archivematica URL. Default: http://127.0.0.1', default='http://127.0.0.1')
-    parser.add_argument('--ss-url', '-s', metavar='URL', help='Storage Service URL. Default: http://127.0.0.1:8000', default='http://127.0.0.1:8000')
-    parser.add_argument('--transfer-type', metavar='TYPE', help="Type of transfer to start. One of: 'standard' (default), 'unzipped bag', 'zipped bag', 'dspace'.", default='standard', choices=['standard', 'unzipped bag', 'zipped bag', 'dspace'])
-    parser.add_argument('--files', action='store_true', help='If set, start transfers from files as well as folders.')
-    parser.add_argument('--hide', action='store_true', help='If set, hide the Transfers and SIPs in the dashboard once they complete.')
-    parser.add_argument('-c', '--config-file', metavar='FILE', help='Configuration file(log/db/PID files)', default=None)
-
-    # Logging
-    parser.add_argument('--verbose', '-v', action='count', default=0, help='Increase the debugging output.')
-    parser.add_argument('--quiet', '-q', action='count', default=0, help='Decrease the debugging output')
-    parser.add_argument('--log-level', choices=['ERROR', 'WARNING', 'INFO', 'DEBUG'], default=None, help='Set the debugging output level. This will override -q and -v')
-
-    args = parser.parse_args()
-
-    log_levels = {
-        2: 'ERROR',
-        1: 'WARNING',
-        0: 'INFO',
-        -1: 'DEBUG',
-    }
-    if args.log_level is None:
-        level = args.quiet - args.verbose
-        level = max(level, -1)  # No smaller than -1
-        level = min(level, 2)  # No larger than 2
-        log_level = log_levels[level]
-    else:
-        log_level = args.log_level
-
-    sys.exit(main(
-        am_user=args.user,
-        am_api_key=args.api_key,
-        ss_user=args.ss_user,
-        ss_api_key=args.ss_api_key,
-        ts_uuid=args.transfer_source,
-        ts_path=args.transfer_path,
-        depth=args.depth,
-        am_url=args.am_url,
-        ss_url=args.ss_url,
-        transfer_type=args.transfer_type,
-        see_files=args.files,
-        hide_on_complete=args.hide,
-        config_file=args.config_file,
-        log_level=log_level,
-    ))
+    utils.main(main)

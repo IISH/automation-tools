@@ -15,7 +15,7 @@ import subprocess
 import sys
 import time
 
-from transfers import utils, models, offload, storage
+import utils, models, offload, storage
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(THIS_DIR)

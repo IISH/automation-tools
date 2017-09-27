@@ -7,7 +7,7 @@ import requests
 from six.moves import configparser
 import sys
 
-from transfers import models
+import models
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(THIS_DIR)

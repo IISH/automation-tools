@@ -2,7 +2,7 @@
 from __future__ import print_function
 import sys
 
-from transfers import get_accession_number
+import get_accession_number
 
 if __name__ == '__main__':
     an = get_accession_number.parse(sys.argv[1])

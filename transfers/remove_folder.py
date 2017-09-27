@@ -13,7 +13,7 @@ import shutil
 import sys
 import requests
 
-from transfers import utils, models
+import utils, models
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(THIS_DIR)

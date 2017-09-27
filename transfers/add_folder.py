@@ -9,7 +9,7 @@ from __future__ import print_function
 import os
 import logging
 
-from transfers import utils
+import utils
 
 LOG_NAME = 'add_folder'
 LOGGER = logging.getLogger(LOG_NAME)

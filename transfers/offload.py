@@ -16,7 +16,7 @@ import hashlib
 import logging
 import os
 
-from transfers import utils, get_accession_number
+import utils, get_accession_number
 
 LOGGER = None
 

@@ -48,6 +48,7 @@ def _add_directory(source_location, accession_number):
         cur_dir = accession_number
         while cur_dir:
             os.chown(os.path.join(source_location, cur_dir), stat_info.st_uid, stat_info.st_gid)
+            os.chmod(os.path.join(source_location, cur_dir), 0o775)
             cur_dir, dir = os.path.split(cur_dir)
 
 

@@ -207,10 +207,11 @@ def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, path_prefix
     else:  # if depth > 1
         # Recurse on each directory
         for e in entries:
-            LOGGER.debug('New path: %s', e)
-            target = get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, e, depth - 1, completed, see_files)
-            if target:
-                return target
+            if os.path.isdir(os.path.join(SOURCE_LOCATION_PATH, e)):
+                LOGGER.debug('New path: %s', e)
+                target = get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, e, depth - 1, completed, see_files)
+                if target:
+                    return target
     return None
 
 

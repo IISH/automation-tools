@@ -11,3 +11,8 @@
 *.sublime-*
 
 *.log.[0-9]
+
+.idea/
+
+transfers.db
+work

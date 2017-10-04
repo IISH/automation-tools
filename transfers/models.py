@@ -1,3 +1,4 @@
+import os.path
 from sqlalchemy import create_engine
 from sqlalchemy import Sequence
 from sqlalchemy import Column, Binary, Boolean, Integer, String
@@ -22,7 +23,11 @@ class Unit(Base):
 
 
 def init(databasefile):
-    engine = create_engine('sqlite:///{}'.format(databasefile), echo=False)
+    if os.path.isfile(databasefile):
+        engine = create_engine('sqlite:///{}'.format(databasefile), echo=False)
+    else:
+        engine = create_engine(databasefile, echo=False)
+
     global Session
     Session = sessionmaker(bind=engine)
     Base.metadata.create_all(engine)

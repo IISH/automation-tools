@@ -239,6 +239,7 @@ def start_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, ts_path, depth
         LOGGER.warning("All potential transfers in %s have been created. Exiting", ts_path)
         return None
     LOGGER.info("Starting with %s", target)
+    time.sleep(6)
     # Get accession ID
     accession = get_accession_id(target)
     LOGGER.info("Accession ID: %s", accession)
@@ -277,7 +278,7 @@ def start_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, ts_path, depth
     )
 
     # Approve transfer
-    LOGGER.info("Ready to start")
+    LOGGER.info("Ready to approve transfer")
     retry_count = 3
     for i in range(retry_count):
         result = approve_transfer(target_name, am_url, am_api_key, am_user)

@@ -4,10 +4,13 @@ import logging
 import logging.config  # Has to be imported separately
 import os
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from six.moves import configparser
 import sys
 
 import models
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(THIS_DIR)

@@ -42,11 +42,12 @@ def get_status(am_url, am_user, am_api_key, unit_uuid, unit_type, session, hide_
     # If Transfer is complete, get the SIP's status
     if unit_info and unit_type == 'transfer' and unit_info['status'] == 'COMPLETE' and unit_info['sip_uuid'] != 'BACKLOG':
         # If complete, hide in dashboard
-        LOGGER.info('Hiding transfer %s in dashboard', unit_uuid)
-        url = am_url + '/api/transfer/' + unit_uuid + '/delete/'
-        LOGGER.debug('Method: DELETE; URL: %s; params: %s;', url, params)
-        response = requests.delete(url, params=params)
-        LOGGER.debug('Response: %s', response)
+        if hide_on_complete:
+            LOGGER.info('Hiding transfer %s in dashboard', unit_uuid)
+            url = am_url + '/api/transfer/' + unit_uuid + '/delete/'
+            LOGGER.debug('Method: DELETE; URL: %s; params: %s;', url, params)
+            response = requests.delete(url, params=params)
+            LOGGER.debug('Response: %s', response)
 
         LOGGER.info('%s is a complete transfer, fetching SIP %s status.', unit_uuid, unit_info['sip_uuid'])
         # Update DB to refer to this one
@@ -267,6 +268,10 @@ def start_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, ts_path, depth
         LOGGER.error('Response: %s', resp_json)
         new_transfer = models.Unit(path=target, unit_type='transfer', status='FAILED', current=False)
         session.add(new_transfer)
+        utils.send_mail(
+            'Unable to start transfer',
+            'Unable to start transfer with accession number ' + accession + ' and name ' + target_name + '.'
+        )
         return None
 
     # Run all scripts in pre-transfer directory
@@ -294,6 +299,10 @@ def start_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, ts_path, depth
         LOGGER.warning('Not approved')
         new_transfer = models.Unit(uuid=None, path=target, unit_type='transfer', current=False)
         session.add(new_transfer)
+        utils.send_mail(
+            'Failed to automatically approve transfer',
+            'Failed to automatically approve transfer with accession number ' + accession + ' and name ' + target_name + '.'
+        )
         return None
 
     LOGGER.info('Finished %s', target)

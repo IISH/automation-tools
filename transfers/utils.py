@@ -3,10 +3,13 @@ import argparse
 import logging
 import logging.config  # Has to be imported separately
 import os
+import re
+import smtplib
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from six.moves import configparser
 import sys
+from email.mime.text import MIMEText
 
 import models
 
@@ -60,6 +63,35 @@ def add_env():
             os.environ[key.upper()] = value
     except Exception:
         return
+
+
+def send_mail(subject, body):
+    mail_from = get_setting('mail_from', '')
+    mail_to = re.split('[,;|]', get_setting('mail_to', ''))
+    mail_relay = get_setting('mail_relay', 'localhost')
+
+    LOGGER.info('Attempting to send mail from ' + mail_from +
+                ' with subject ' + subject +
+                ' to ' + ','.join(mail_to) +
+                ' via ' + mail_relay)
+
+    msg = MIMEText(body, 'plain', 'utf8')
+    msg['Subject'] = subject
+    msg['To'] = ','.join(mail_to)
+    msg['From'] = mail_from
+
+    try:
+        s = smtplib.SMTP(mail_relay)
+
+        mail_user = get_setting('mail_user')
+        mail_password = get_setting('mail_password')
+        if mail_user and mail_password:
+            s.login(mail_user, mail_password)
+
+        s.sendmail(mail_from, mail_to, msg.as_string())
+        s.quit()
+    except Exception:
+        LOGGER.error('Failed to send email!')
 
 
 def call_url_json(url, params):

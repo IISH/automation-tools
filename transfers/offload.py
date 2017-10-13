@@ -57,6 +57,10 @@ def checksum(file):
         return True
     else:
         LOGGER.error('ERROR... expect ' + expected_hash + ' but got ' + actual_hash + ' for file ' + file)
+        utils.send_mail(
+            'Failed to validate FTP offload',
+            'Failed to validate FTP offload ' + file + '. Hash expected ' + expected_hash + ' but got ' + actual_hash
+        )
         return False
 
 

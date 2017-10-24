@@ -7,6 +7,7 @@ import re
 import smtplib
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from six import binary_type, text_type
 from six.moves import configparser
 import sys
 from email.mime.text import MIMEText
@@ -27,9 +28,9 @@ except ImportError:
     # Cribbed & modified from Python3's OS module to support Python2
     def fsencode(filename):
         encoding = sys.getfilesystemencoding()
-        if isinstance(filename, str):
+        if isinstance(filename, binary_type):
             return filename
-        elif isinstance(filename, unicode):
+        elif isinstance(filename, text_type):
             return filename.encode(encoding)
         else:
             raise TypeError("expect bytes or str, not %s" % type(filename).__name__)
@@ -37,9 +38,9 @@ except ImportError:
 
     def fsdecode(filename):
         encoding = sys.getfilesystemencoding()
-        if isinstance(filename, unicode):
+        if isinstance(filename, text_type):
             return filename
-        elif isinstance(filename, str):
+        elif isinstance(filename, binary_type):
             return filename.decode(encoding)
         else:
             raise TypeError("expect bytes or str, not %s" % type(filename).__name__)

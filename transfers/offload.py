@@ -64,26 +64,33 @@ def checksum(file):
         return False
 
 
-def file(entry):
-    if os.path.exists(entry) and os.path.isfile(entry) \
-            and not entry.endswith('.md5') and not entry.endswith('ingest.txt'):
-        directory = os.path.dirname(entry)
-        files = [os.path.join(directory, f) for f in os.listdir(directory) if
-                 os.path.isfile(os.path.join(directory, f))]
-        if os.path.join(directory, 'ingest.txt') in files:
-            LOGGER.info('Found ' + os.path.join(directory, 'ingest.txt'))
-            return True
-        elif entry + '.md5' in files:
-            return checksum(entry)
-        else:
-            LOGGER.info('As of yet no checksum file found for ' + entry)
-            return False
-    else:
-        LOGGER.info('Path not found: ' + entry)
-        return False
+def file(entry, see_files):
+    if os.path.exists(entry):
+        if see_files and os.path.isfile(entry) and not entry.endswith('.md5') and not entry.endswith('ingest.txt'):
+            directory = os.path.dirname(entry)
+            files = [os.path.join(directory, f) for f in os.listdir(directory) if
+                     os.path.isfile(os.path.join(directory, f))]
+            trigger = os.path.join(directory, 'ingest.txt')
+            if trigger in files:
+                LOGGER.info('Found ' + trigger)
+                return True
+            elif entry + '.md5' in files:
+                return checksum(entry)
+            else:
+                LOGGER.info('As of yet no checksum file found for ' + entry)
+                return False
+        elif not see_files:
+            trigger = os.path.join(entry, 'ingest.txt')
+            if os.path.isfile(trigger):
+                LOGGER.info('Found ' + trigger)
+                os.remove(trigger)
+                return True
+
+    LOGGER.info('Path not found: ' + entry)
+    return False
 
 
-def main(source_location, candidates, log_name):
+def main(source_location, candidates, see_files, log_name):
     global LOGGER
     LOGGER = logging.getLogger(log_name)
 
@@ -92,6 +99,6 @@ def main(source_location, candidates, log_name):
         location_entry = source_location + '/' + entry.decode('utf-8')
         LOGGER.debug('offload.download_complete ' + location_entry)
         an = get_accession_number.parse(location_entry)
-        if an and find_accession_number(an) and file(location_entry):
+        if an and find_accession_number(an) and file(location_entry, see_files):
             selected.add(entry)
     return selected

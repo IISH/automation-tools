@@ -194,7 +194,7 @@ def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid, path_prefix
         entries = set(entries) - completed
         LOGGER.debug("New transfer candidates: %s", entries)
         # Offloaded
-        entries = offload.main(SOURCE_LOCATION_PATH, entries, LOG_NAME)
+        entries = offload.main(SOURCE_LOCATION_PATH, entries, see_files, LOG_NAME)
         if SIZE_SHARED_LOCATION_INFO and 'quota' in SIZE_SHARED_LOCATION_INFO and SIZE_SHARED_LOCATION_INFO['quota']:
             entries = storage.main(SIZE_SHARED_LOCATION_INFO['path'], long(SIZE_SHARED_LOCATION_INFO['quota']),
                                    SOURCE_LOCATION_PATH, entries, LOG_NAME, int(utils.get_setting('storage_cap', 1)))

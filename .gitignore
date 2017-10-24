@@ -11,6 +11,7 @@
 *.sublime-*
 
 *.log.[0-9]
+.tox/
 
 .idea/
 

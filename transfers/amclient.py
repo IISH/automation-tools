@@ -5,6 +5,7 @@ Module and CLI that holds functionality for interacting with the various
 Archivematica APIs.
 """
 from __future__ import print_function, unicode_literals
+
 import argparse
 import binascii
 import base64
@@ -13,31 +14,32 @@ import json
 import logging
 import logging.config  # Has to be imported separately
 import os
+import pprint
+import re
+import sys
+
+import requests
+from six import binary_type, text_type
+
+
 try:
     from os import fsencode
 except ImportError:
     def fsencode(filename):
         """Cribbed & modified from Python3's OS module to support Python2."""
         encoding = sys.getfilesystemencoding()
-        if isinstance(filename, str):
+        if isinstance(filename, binary_type):
             return filename
-        elif isinstance(filename, unicode):
+        elif isinstance(filename, text_type):
             return filename.encode(encoding)
         else:
             raise TypeError("expect bytes or str, not %s" %
                             type(filename).__name__)
-import pprint
-import re
-import sys
-
-import requests
-from six.moves import configparser
 
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_LOGFILE = os.path.join(THIS_DIR, 'amclient.log')
 LOGGER = logging.getLogger('amclient')
-CONFIG_FILE = None
 RETRY_COUNT = 5
 DEF_AM_URL = 'http://127.0.0.1'
 DEF_SS_URL = 'http://127.0.0.1:8000'
@@ -200,8 +202,7 @@ def get_parser():
         description='Archivematica Client',
         formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
-        '--config-file', metavar='FILE', help='Configuration'
-        ' file (log/db/PID files)', default=DEFAULT_LOGFILE)
+        '--log-file', metavar='FILE', help='logfile', default=DEFAULT_LOGFILE)
     parser.add_argument(
         '--log-level', choices=['ERROR', 'WARNING', 'INFO', 'DEBUG'],
         default='INFO', help='Set the debugging output level.')
@@ -218,18 +219,6 @@ def get_parser():
                 '--' + opt.name, metavar=opt.metavar, help=opt.help,
                 default=opt.default, type=opt.type)
     return parser
-
-
-def get_setting(setting, default=None):
-    """Get ``setting`` from our config file; return ``default`` if not
-    possible.
-    """
-    config = configparser.SafeConfigParser()
-    try:
-        config.read(CONFIG_FILE)
-        return config.get('amclient', setting)
-    except (TypeError, configparser.Error):
-        return default
 
 
 def _call_url_json(url, params, method='GET'):
@@ -580,7 +569,7 @@ class AMClient:
 def main():
     parser = get_parser()
     args = parser.parse_args()
-    setup_logger(args.config_file, args.log_level)
+    setup_logger(args.log_file, args.log_level)
     am_client = AMClient(**vars(args))
     try:
         getattr(am_client, 'print_{0}'.format(args.subcommand.replace('-', '_')))

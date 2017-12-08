@@ -12,8 +12,8 @@ C. Unit id (starting with 'dig') with format string
 An accession number is however only expressed as the id part of the PID:
 n2.n3
 
-. E.g. given PID: hdl:12345/ARCH67890.b123
-then all these conventions result in a valid accession number: ARCH67890.b123
+. E.g. given PID: hdl:12345/ARCH67890.dig123
+then all these conventions result in a valid accession number: ARCH67890.dig123
 folder1 + folder2:                    /a/b/c/d/e/f/12345/ARCH67890.dig123
 folder1 + folder2 +   folder3:        /a/b/c/d/e/f/12345/ARCH67890/dig123
 folder1 + folder2 +   filepart1:      /a/b/c/d/e/f/12345/ARCH67890/dig123.zip

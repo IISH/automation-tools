@@ -10,6 +10,7 @@ The Automation Tools project is a set of python scripts, that are designed to au
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Automated transfers](#automated-transfers)
   - [Configuration](#configuration)
@@ -22,9 +23,23 @@ The Automation Tools project is a set of python scripts, that are designed to au
     - [user-input](#user-input)
   - [Logs](#logs)
   - [Multiple automated transfer instances](#multiple-automated-transfer-instances)
+- [DIP creation](#dip-creation)
+  - [Configuration](#configuration-1)
+    - [Parameters](#parameters-1)
+    - [Getting Storage Service API key](#getting-storage-service-api-key)
+- [DIP upload to AtoM](#dip-upload-to-atom)
+  - [Configuration](#configuration-2)
+    - [Parameters](#parameters-2)
+- [Archivematica Client](#archivematica-client)
+  - [Subcommands and arguments](#subcommands-and-arguments)
 - [Related Projects](#related-projects)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+Requirements
+------------
+
+* 7z (only for DIP creation script)
 
 Installation
 ------------
@@ -201,6 +216,204 @@ You may need to set up multiple automated transfer instances, for example if req
 `<config_file_1>` and `<config_file_2>` should specify different file names for db/PID/log files. See transfers.conf and transfers-2.conf in etc/ for an example
 
 In case different hooks are required for each instance, a possible approach is to checkout a new instance of the automation tools, for example in `/usr/lib/archivematica/automation-tools-2`
+
+DIP creation
+------------
+
+`aips/create_dip.py` can be used to make a DIP from an AIP available in an Storage Service instance. Unlike DIPs created in Archivematica, the ones created with this script will include only the original files from the transfer and they will maintain the directories, filenames and last modified date from those files. They will be placed in a single ZIP file under the objects directory which will also include a copy of the submissionDocumentation folder (if present in the AIP) and the AIP METS file. Another METS file will be generated alongside the objects folder containing only a reference to the ZIP file (without AMD or DMD sections).
+
+Although this script is part of the automation-tools it's not completely automated yet, so it needs to be executed once per AIP and it requires the AIP UUID. It also requires 7z installed and available to extract the AIPs downloaded from the Storage Service.
+
+### Configuration
+
+Suggested use of this script is by using the example shell script in the `etc` directory (`/etc/archivematica/automation-tools/create_dip_script.sh`):
+
+```
+#!/bin/bash
+cd /usr/lib/archivematica/automation-tools/
+/usr/share/python/automation-tools/bin/python -m aips.create_dip \
+  --ss-user <username> \
+  --ss-api-key <api_key> \
+  --aip-uuid <uuid> \
+  --tmp-dir <path> \
+  --output-dir <path> \
+  --log-file <path>
+```
+
+(Note that the script calls the DIP creation script as a module using python's `-m` flag, this is required due to the use of relative imports in the code)
+
+The script can be run from a shell window like:
+
+```
+user@host:/etc/archivematica/automation-tools$ sudo -u archivematica ./create_dip_script.sh
+```
+
+#### Parameters
+
+The `aips/create_dip.py` accepts the following parameters:
+
+* `--ss-url URL, -s URL`: Storage Service URL. Default: http://127.0.0.1:8000
+* `--ss-user USERNAME` [REQUIRED]: Username of the Storage Service user to authenticate as. Storage Service 0.8 and up requires this; earlier versions will ignore any value provided.
+* `--ss-api-key KEY` [REQUIRED]: API key of the Storage Service user. Storage Service 0.8 and up requires this; earlier versions will ignore any value provided.
+* `--aip-uuid UUID` [REQUIRED]: AIP UUID in the Storage Service to create the DIP from.
+* `--tmp-dir PATH`: Absolute path to a directory where the AIP will be downloaded and extracted. Default: "/tmp"
+* `--output-dir PATH`: Absolute path to a directory where the DIP will be created. Default: "/tmp"
+* `--log-file PATH`: Absolute path to a file to output the logs. Otherwise it will be created in the script directory.
+* `-v, --verbose`: Increase the debugging output. Can be specified multiple times, e.g. `-vv`
+* `-q, --quiet`: Decrease the debugging output. Can be specified multiple times, e.g. `-qq`
+* `--log-level`: Set the level for debugging output. One of: 'ERROR', 'WARNING', 'INFO', 'DEBUG'. This will override `-q` and `-v`
+
+#### Getting Storage Service API key
+
+See [Getting API keys](#getting-api-keys)
+
+DIP upload to AtoM
+------------------
+
+`dips/atom_upload.py` is available to upload a DIP folder from the local filesystem to an external AtoM instance. It requires a passwordless SSH connection to the AtoM host for the user running the script and the AtoM host has to be already added to list of known hosts. [More info](https://wiki.archivematica.org/Upload_DIP#Send_your_DIPs_using_rsync)
+
+Although this script is part of the automation-tools it's not completely automated yet, so it needs to be executed once per DIP and it requires the DIP path and the AtoM target description slug.
+
+### Configuration
+
+Suggested use of this script is by using the example shell script in the `etc` directory (`/etc/archivematica/automation-tools/atom_upload_script.sh`):
+
+```
+#!/bin/bash
+cd /usr/lib/archivematica/automation-tools/
+/usr/share/python/automation-tools/bin/python -m dips.atom_upload \
+  --atom-url <url> \
+  --atom-email <email> \
+  --atom-password <password> \
+  --atom-slug <slug> \
+  --rsync-target <host:path> \
+  --dip-path <path> \
+  --log-file <path>
+```
+
+(Note that the script calls the upload to AtoM script as a module using python's `-m` flag, this is required due to the use of relative imports in the code)
+
+The script can be run from a shell window like:
+
+```
+user@host:/etc/archivematica/automation-tools$ sudo -u archivematica ./atom_upload_script.sh
+```
+
+#### Parameters
+
+The `dips/atom_upload.py` accepts the following parameters:
+
+* `--atom-url URL`: AtoM URL. Default: http://192.168.168.193
+* `--atom-email EMAIL` [REQUIRED]: Email of the AtoM user to authenticate as.
+* `--atom-password PASSWORD` [REQUIRED]: Password of the AtoM user to authenticate as.
+* `--atom-slug SLUG` [REQUIRED]: Slug of the AtoM archival description to target in the upload.
+* `--rsync-target HOST:PATH`: Host and path to place the DIP folder with `rsync`. Default: 192.168.168.193:/tmp
+* `--dip-path PATH` [REQUIRED]: Absolute path to a local DIP to upload.
+* `--log-file PATH`: Absolute path to a file to output the logs. Otherwise it will be created in the script directory.
+* `-v, --verbose`: Increase the debugging output. Can be specified multiple times, e.g. `-vv`
+* `-q, --quiet`: Decrease the debugging output. Can be specified multiple times, e.g. `-qq`
+* `--log-level`: Set the level for debugging output. One of: 'ERROR', 'WARNING', 'INFO', 'DEBUG'. This will override `-q` and `-v`
+
+Archivematica Client
+--------------------
+
+The transfers/amclient.py script is a module and CLI that provides functionality for interacting with the various Archivematica APIs.
+
+Basic usage: amclient.py <subcommand> [optional arguments] <positional argument(s)>
+  E.g.: `amclient.py close-completed-transfers --am-user-name islandora 234deffdf89d887a7023546e6bc0031167cedf6`
+
+### Subcommands and arguments
+
+* close-completed-transfers
+  * purpose: close all completed transfers (those not failed or rejected)
+  * positional argument: am_api_key - API key for Archivematica dashboard user
+  * optional arguments:
+    * `--am-user-name <username>` - username for Archivematica dashboard user (default: test)
+    * `--am-url <url>` - Archivematica URL (default: `http://127.0.0.1`)
+
+* close-completed-ingests
+  * purpose: close all completed ingests (those not failed or rejected)
+  * positional argument: am_api_key - API key for Archivematica dashboard user
+  * optional arguments:
+    * `--am-user-name <username>` - username for Archivematica dashboard user (default: test)
+    * `--am-url <url>` - Archivematica URL (default: `http://127.0.0.1`)
+
+* completed-transfers
+  * purpose: print all completed transfers
+  * positional argument: am_api_key - API key for Archivematica dashboard user
+  * optional arguments:
+    * `--am-user-name <username>` - username for Archivematica dashboard user (default: test)
+    * `--am-url <url>` - Archivematica URL (default: `http://127.0.0.1`)
+
+* completed-ingests
+  * purpose: print all completed ingests
+  * positional argument: am_api_key - API key for Archivematica dashboard user
+  * optional arguments:
+    * `--am-user-name <username>` - username for Archivematica dashboard user (default: test)
+    * `--am-url <url>` - Archivematica URL (default: `http://127.0.0.1`)
+
+* unapproved-transfers
+  * purpose: print all unapproved transfers
+  * positional argument: am_api_key - API key for Archivematica dashboard user
+  * optional arguments:
+    * `--am-user-name <username>` - username for Archivematica dashboard user (default: test)
+    * `--am-url <url>` - Archivematica URL (default: `http://127.0.0.1`)
+
+* transferables
+  * purpose: print all transferable entities in the Storage Service
+  * positional arguments:
+    * ss_api_key - Storage Service API key
+    * transfer_source - transfer source UUID
+  * optional arguments:
+    * `--ss-user-name <username>` - Storage Service username (default: `test`)
+    * `--ss-url <url>` - Storage Service URL (default: `http://127.0.0.1:8000`)
+    * `--transfer-path <path>` - relative path within the Transfer Source (default: `""`)
+
+* aips
+  * purpose: print all AIPs in the Storage Service
+  * positional argument: ss_api_key - Storage Service API key
+  * optional arguments:
+    * `--ss-user-name <username>` - Storage Service username (default: `test`)
+    * `--ss-url <url>` - Storage Service URL (default: `http://127.0.0.1:8000`)
+
+* dips
+  * purpose: print all DIPs in the Storage Service
+  * positional argument: ss_api_key - Storage Service API key
+  * optional arguments:
+    * `--ss-user-name <username>` - Storage Service username (default: `test`)
+    * `--ss-url <url>` - Storage Service URL (default: `http://127.0.0.1:8000`)
+
+* aips2dips
+  * purpose: print all AIPs in the Storage Service along with their corresponding DIPs
+  * positional argument: ss_api_key - Storage Service API key
+  * optional arguments:
+    * `--ss-user-name <username>` - Storage Service username (default: `test`)
+    * `--ss-url <url>` - Storage Service URL (default: `http://127.0.0.1:8000`)
+
+* aip2dips
+  * purpose: print an AIP with AIP_UUID along with its corresponding DIPs
+  * positional arguments:
+    * aip_uuid - UUID of the target AIP
+    * ss_api_key - Storage Service API key
+  * optional arguments:
+    * `--ss-user-name <username>` - Storage Service username (default: `test`)
+    * `--ss-url <url>` - Storage Service URL (default: `http://127.0.0.1:8000`)
+
+* download-dip
+  * purpose: download a DIP with DIP_UUID
+  * positional arguments:
+    * dip_uuid - UUID of the target DIP
+    * ss_api_key - Storage Service API key
+  * optional arguments:
+    * `--ss-user-name <username>` - Storage Service username (default: `test`)
+    * `--ss-url <url>` - Storage Service URL (default: `http://127.0.0.1:8000`)
+    * `--directory <dir>` - directory path in which to save the DIP
+
+In addition, these optional arguments are available for all subcommands:
+* `--help`, `--h` - show help message and exit
+* `--output-mode <mode>` - how to print output, JSON (default) or Python
+
+See notes above about finding the Archivematica and Storage Service API keys.
 
 Related Projects
 ----------------

@@ -7,26 +7,26 @@ C. naming authority
 D. Forward slash
 E. Archival id with format ARCH|COLL number
 F. A dot
-C. Unit id with format string
+C. Unit id (starting with 'dig') with format string
 
 An accession number is however only expressed as the id part of the PID:
 n2.n3
 
-. E.g. given PID: hdl:12345/ARCH67890.123
-then all these conventions result in a valid accession number: ARCH67890.123
-folder1 + folder2:                    /a/b/c/d/e/f/12345/ARCH67890.123
-folder1 + folder2 +   folder3:        /a/b/c/d/e/f/12345/ARCH67890/123
-folder1 + folder2 +   filepart1:      /a/b/c/d/e/f/12345/ARCH67890/123.zip
-folder1 + filepart1 + filepart2:      /a/b/c/d/e/f/12345/ARCH67890.123.zip
-folder1 + folder2 +   file:           /a/b/c/d/e/f/12345/ARCH67890.123/*.zip
-folder1 + folder2 +   folder3 + file: /a/b/c/d/e/f/12345/ARCH67890/123/*.zip
+. E.g. given PID: hdl:12345/ARCH67890.dig123
+then all these conventions result in a valid accession number: ARCH67890.dig123
+folder1 + folder2:                    /a/b/c/d/e/f/12345/ARCH67890.dig123
+folder1 + folder2 +   folder3:        /a/b/c/d/e/f/12345/ARCH67890/dig123
+folder1 + folder2 +   filepart1:      /a/b/c/d/e/f/12345/ARCH67890/dig123.zip
+folder1 + filepart1 + filepart2:      /a/b/c/d/e/f/12345/ARCH67890.dig123.zip
+folder1 + folder2 +   file:           /a/b/c/d/e/f/12345/ARCH67890.dig123/*.zip
+folder1 + folder2 +   folder3 + file: /a/b/c/d/e/f/12345/ARCH67890/dig123/*.zip
 
 Folder structure always has precedence over filename.
 """
 from __future__ import print_function
 import re
 
-PATTERN_PID = re.compile('(ARCH|COLL)[\d]{5}\.[\d]+$')
+PATTERN_PID = re.compile('(ARCH|COLL)[\d]{5}\.dig[\d]+$')
 
 
 def get_pid(pid):

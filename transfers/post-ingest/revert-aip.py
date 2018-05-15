@@ -3,17 +3,22 @@ import re
 import sys
 import time
 import shutil
+import datetime
 import argparse
 import subprocess
 import dateutil.parser
 from xml.etree import ElementTree
 
+fitsNS = "http://hul.harvard.edu/ois/xml/ns/fits/fits_output"
+mediaInfoNS = "https://mediaarea.net/mediainfo"
 metsNS = "http://www.loc.gov/METS/"
 premisNS = "info:lc/xmlns/premis-v2"
 premisV3NS = "http://www.loc.gov/premis/v3"
 xlinkNS = "http://www.w3.org/1999/xlink"
 systemNS = "http://ns.exiftool.ca/File/System/1.0/"
 
+fitsBNS = "{" + fitsNS + "}"
+mediaInfoBNS = "{" + mediaInfoNS + "}"
 metsBNS = "{" + metsNS + "}"
 premisBNS = "{" + premisNS + "}"
 premisV3BNS = "{" + premisV3NS + "}"
@@ -21,6 +26,8 @@ xlinkBNS = "{" + xlinkNS + "}"
 systemBNS = "{" + systemNS + "}"
 
 NSMAP = {
+    'fits': fitsNS,
+    'mediainfo': mediaInfoNS,
     'mets': metsNS,
     'premis': premisNS,
     'premisv3': premisV3NS,
@@ -66,7 +73,8 @@ class AipReverter:
         if dmd_id:
             new_folder = self.__tree \
                 .findtext('mets:dmdSec[@ID="' + dmd_id + '"]//premisv3:originalName', namespaces=NSMAP) \
-                .replace('%SIPDirectory%objects/', '')
+                .replace('%SIPDirectory%objects/', '') \
+                .replace('%transferDirectory%objects/', '')
             os.makedirs(os.path.join(self.__reverted_location, new_folder))
 
     def __restore_file(self, node, parents):
@@ -87,36 +95,80 @@ class AipReverter:
                 .findtext('premis:originalName', namespaces=NSMAP) \
                 .replace('%transferDirectory%objects/', '')
 
-            access_date = premis_node \
-                .findtext('premis:objectCharacteristics//System:FileAccessDate', namespaces=NSMAP)
-            if not access_date:
-                access_date = premis_node \
-                    .findtext('premis:objectCharacteristics//FileAccessDate', namespaces=NSMAP)
-
-            modify_date = premis_node \
-                .findtext('premis:objectCharacteristics//System:FileModifyDate', namespaces=NSMAP)
-            if not modify_date:
-                modify_date = premis_node \
-                    .findtext('premis:objectCharacteristics//FileModifyDate', namespaces=NSMAP)
-
             aip_file_path = os.path.join(self.__aip_location, file_path)
             reverted_file_path = os.path.join(self.__reverted_location, new_file)
             shutil.copyfile(aip_file_path, reverted_file_path)
 
-            # TODO: Dirty hack to make parsing easier
-            access_date = re.sub(r'([0-9]{4}):([0-9]{2}):([0-9]{2})', r'\g<1>/\g<2>/\g<3>', access_date)
-            modify_date = re.sub(r'([0-9]{4}):([0-9]{2}):([0-9]{2})', r'\g<1>/\g<2>/\g<3>', modify_date)
+            object_characteristics = premis_node.find('premis:objectCharacteristics', namespaces=NSMAP)
+            dates = self.__find_access_and_modification_dates(object_characteristics, aip_file_path)
+            os.utime(reverted_file_path, dates)
 
-            os.utime(reverted_file_path, (
-                time.mktime(dateutil.parser.parse(access_date).timetuple()),
-                time.mktime(dateutil.parser.parse(modify_date).timetuple())
-            ))
+    def __find_access_and_modification_dates(self, object_characteristics, aip_file_path):
+        access_date = None
+        modify_date = None
+
+        # First try the EXIF tool
+        exif_access_date = object_characteristics.findtext('.//System:FileAccessDate', namespaces=NSMAP)
+        if not exif_access_date:
+            exif_access_date = object_characteristics.findtext('.//FileAccessDate', namespaces=NSMAP)
+
+        exif_modify_date = object_characteristics.findtext('.//System:FileModifyDate', namespaces=NSMAP)
+        if not exif_modify_date:
+            exif_modify_date = object_characteristics.findtext('.//FileModifyDate', namespaces=NSMAP)
+
+        # TODO: Dirty hack to make parsing easier
+        if exif_access_date and exif_modify_date:
+            n_exif_access_date = re.sub(r'([0-9]{4}):([0-9]{2}):([0-9]{2})', r'\g<1>/\g<2>/\g<3>', exif_access_date)
+            n_exif_modify_date = re.sub(r'([0-9]{4}):([0-9]{2}):([0-9]{2})', r'\g<1>/\g<2>/\g<3>', exif_modify_date)
+
+            n_exif_access_date = re.sub(r'([+\-])([0-9]{2}):([0-9]{2})', r'\g<1>\g<2>\g<3>', n_exif_access_date)
+            n_exif_modify_date = re.sub(r'([+\-])([0-9]{2}):([0-9]{2})', r'\g<1>\g<2>\g<3>', n_exif_modify_date)
+
+            access_date = time.mktime(dateutil.parser.parse(n_exif_access_date).timetuple())
+            modify_date = time.mktime(dateutil.parser.parse(n_exif_modify_date).timetuple())
+
+        # Then try the FITS tool
+        if not modify_date:
+            fits_modify_date = object_characteristics.findtext('.//fits:fileinfo/fits:fslastmodified', namespaces=NSMAP)
+
+            if fits_modify_date:
+                modify_date = int(fits_modify_date) // 1000
+
+        # Then try the MediaInfo tool
+        if not modify_date:
+            mediainfo_modify_date = object_characteristics.findtext('.//mediainfo:File_Modified_Date', namespaces=NSMAP)
+            if mediainfo_modify_date.startswith('UTC'):
+                mediainfo_modify_date = mediainfo_modify_date.replace('UTC ', '') + ' UTC'
+
+            if mediainfo_modify_date:
+                modify_date = time.mktime(dateutil.parser.parse(mediainfo_modify_date).timetuple())
+
+        # Also obtain date from the AIP file
+        file_access_date = int(os.path.getatime(aip_file_path))
+        file_modify_date = int(os.path.getmtime(aip_file_path))
+
+        self.__print_dates(aip_file_path, modify_date, file_modify_date)
+
+        return (
+            access_date if access_date else file_access_date,
+            modify_date if modify_date else file_modify_date
+        )
 
     def __find_in_physical_structmap(self, parents):
         elem = self.__physical_structmap
         for label in parents:
             elem = elem.find('./mets:div[@LABEL="' + label + '"]', namespaces=NSMAP)
         return elem
+
+    @staticmethod
+    def __print_dates(aip_file_path, modify_date, file_modify_date):
+        if modify_date:
+            modify_date_str = str(datetime.datetime.utcfromtimestamp(modify_date))
+            file_modify_date_str = str(datetime.datetime.utcfromtimestamp(file_modify_date))
+
+            if modify_date_str != file_modify_date_str:
+                print(aip_file_path)
+                print('Modify date: ' + file_modify_date_str + ' vs. METS ' + modify_date_str)
 
 
 class Comparer:
@@ -135,15 +187,15 @@ class Comparer:
 
         if len(files_missing) > 0:
             error = True
-            print('The following files are missing: \n' + '\n'.join(files_missing))
+            print('The following files are missing: \n' + '\n'.join(files_missing) + '\n')
 
         if len(files_timestamp_difference) > 0:
             error = True
-            print('The following files have a different timestamp: \n' + '\n'.join(files_timestamp_difference))
+            print('The following files have a different timestamp: \n' + '\n'.join(files_timestamp_difference) + '\n')
 
         if len(files_checksum_difference) > 0:
             error = True
-            print('The following files have different content: \n' + '\n'.join(files_checksum_difference))
+            print('The following files have different content: \n' + '\n'.join(files_checksum_difference) + '\n')
 
         return error
 
@@ -154,9 +206,15 @@ class Comparer:
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
         output, error = process.communicate()
 
-        files = set(output.splitlines()[1:-3])
-        files = files - {'Thumbs.db', 'Icon', 'Icon\r', '.DS_Store'}
-        files = set([file for file in files if not file.startswith('.')])
+        files = set()
+        for path in output.splitlines()[1:-3]:
+            if path.startswith('deleting '):
+                path = path.replace('deleting ', '')
+
+            is_unneeded_file = os.path.basename(path) in {'Thumbs.db', 'Icon', 'Icon\r', '.DS_Store'}
+            all_hidden = [part_of_path for part_of_path in path.split('/') if part_of_path.startswith('.')]
+            if not is_unneeded_file and not all_hidden:
+                files.add(path)
 
         return files
 
@@ -173,6 +231,8 @@ if __name__ == '__main__':
 
     aip_reverter = AipReverter(args.aip, args.reverted)
     aip_reverter.revert_aip()
+
+    print('')
 
     comparer = Comparer(args.original, args.reverted)
     if comparer.compare():

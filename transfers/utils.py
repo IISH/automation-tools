@@ -119,14 +119,15 @@ def call_url_json(url, params):
 
 def set_pid_file(pid_file):
     # Check for evidence that this is already running
+    f = os.fdopen(os.open(pid_file, os.O_CREAT | os.O_RDWR), 'r+')
+    running_pid = f.read()
+
     try:
-        # Open PID file only if it doesn't exist for read/write
-        f = os.fdopen(os.open(pid_file, os.O_CREAT | os.O_EXCL | os.O_RDWR), 'r+')
-    except:
+        os.kill(int(running_pid), 0)
         LOGGER.info('This script is already running. To override this behaviour and start a new run, remove %s',
                     pid_file)
         return False
-    else:
+    except (OSError, ValueError):
         pid = os.getpid()
         f.write(str(pid))
         f.close()

@@ -6,3 +6,4 @@ class Preservation:
     SERIAL = 'Serial'
     VIDEO = 'Video'
     FILE_GROUP = ['access', 'preservation', 'transcription', 'image']
+    VALID_HEADERS = ['objnr', 'id', 'volgnr', 'access', 'preservation', 'transcription', 'image']

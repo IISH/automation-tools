@@ -135,7 +135,7 @@ class Csv2Mets:
             return
 
         # --------------------------------------------------------------------------------------------------------------
-        # Validate 8: ensure no duplicate keys are part of the CSV
+        # Validate 8: ensure CSV header keys are unique
         # --------------------------------------------------------------------------------------------------------------
         for header in csv_headers:
             count = csv_headers.count(header)
@@ -177,6 +177,9 @@ class Csv2Mets:
         for idx, header in enumerate(csv_headers):
             self.csv_index[header] = idx
             self.info("Map CSV index {}={}".format(idx, header))
+
+        # Assemble the number of unique groups
+        group_objid
 
 
 def unit_tests():

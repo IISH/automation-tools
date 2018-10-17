@@ -107,7 +107,7 @@ class CreateMETS:
                 last_seq = file['seq']
                 self.xl.elem('div', {'LABEL': 'Page ' + str(file['seq']), 'ORDER': str(file['seq']), 'TYPE': 'page'})
 
-            self.xl.elem('fptr', {'FILEID': file['ref']}).close_entry()
+            self.xl.elem('fptr', {'FILEID': os.path.basename(file['ref']), 'CONTENTIDS': file['ref']}).close_entry()
 
         self.xl.close_entry(3)
 

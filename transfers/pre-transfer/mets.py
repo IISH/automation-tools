@@ -100,7 +100,8 @@ class CreateMETS:
         self.xl.elem('fileSec')
 
         file_sec_counter = 0
-        for group, files in groupby(self.files, key=lambda file: file['group']):
+        sorted_files_by_group = sorted(self.files, key=lambda file: file['group'])
+        for group, files in groupby(sorted_files_by_group, key=lambda file: file['group']):
             file_sec_counter += 1
 
             self.xl.elem('fileGrp', dict({'ID': 'fileSec-' + str(file_sec_counter), 'USE': group}))
@@ -117,14 +118,14 @@ class CreateMETS:
         last_seq = None
         for file in self.files:
             if not last_seq == file['seq']:
-                if last_seq is None:
+                if last_seq is not None:
                     self.xl.close_entry()
                 last_seq = file['seq']
                 self.xl.elem('div', {'LABEL': 'Page ' + str(file['seq']), 'ORDER': str(file['seq']), 'TYPE': 'page'})
 
             self.xl.elem('fptr', {'FILEID': file['id']}).close_entry()
 
-        self.xl.close_entry(2)
+        self.xl.close_entry(3)
 
 
 def usage():

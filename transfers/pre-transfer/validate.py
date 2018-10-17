@@ -126,10 +126,10 @@ class ValidateFolder:
         # --------------------------------------------------------------------------------------------------------------
         all_filenames = []
         for root, dirs, files in os.walk(self.fileset + '/preservation'):
-            all_filenames.extend([os.path.basename(file) for file in files])
+            all_filenames.extend([os.path.splitext(file)[0] for file in files])
         for root, dirs, files in os.walk(self.fileset):
             for file in files:
-                if not os.path.basename(file) in all_filenames:
+                if not os.path.splitext(file)[0] in all_filenames:
                     self.error(Error.NO_PRESERVATION_FILE,
                                Error.NO_PRESERVATION_FILE_MSG.format(file))
         if self.report['error']:

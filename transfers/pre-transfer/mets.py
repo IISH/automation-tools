@@ -6,7 +6,6 @@
 import os
 import sys
 import getopt
-from itertools import groupby
 from xml.sax.saxutils import XMLGenerator
 from preservation import Preservation
 
@@ -67,11 +66,13 @@ class CreateMETS:
     def run(self):
         self.organize_files()
 
-        self.manifest = open(self.fileset + '/IISH_METS.xml', 'w')
+        if not os.path.exists(self.fileset + '/metadata'):
+            os.makedirs(self.fileset + '/metadata')
+
+        self.manifest = open(self.fileset + '/metadata/mets_structmap.xml', 'w')
         self.xl = MetsDocument(self.manifest)
 
         self.xl.elem(u'mets', _attributes)
-        self.create_filesec()
         self.create_structmap()
         self.xl.close_entry().close()
 
@@ -84,12 +85,10 @@ class CreateMETS:
                     if os.path.isfile(self.fileset + '/' + directory + '/' + file):
                         file_counter += 1
 
-                        file_id = 'f' + str(file_counter)
-                        file_ref = 'objects/' + directory + '/' + file
+                        file_ref = directory + '/' + file
                         file_seq = int(os.path.splitext(file)[0].split('_')[1])
 
                         self.files.append({
-                            'id': file_id,
                             'ref': file_ref,
                             'seq': file_seq,
                             'group': directory
@@ -97,24 +96,8 @@ class CreateMETS:
 
         self.files = sorted(self.files, key=lambda file: file['seq'])
 
-    def create_filesec(self):
-        self.xl.elem('fileSec')
-
-        file_sec_counter = 0
-        sorted_files_by_group = sorted(self.files, key=lambda file: file['group'])
-        for group, files in groupby(sorted_files_by_group, key=lambda file: file['group']):
-            file_sec_counter += 1
-
-            self.xl.elem('fileGrp', dict({'ID': 'fileSec-' + str(file_sec_counter), 'USE': group}))
-            for file in files:
-                file_elem = self.xl.elem('file', {'ID': file['id']})
-                file_elem.elem('FLocat', {'LOCTYPE': 'OTHER', 'xlink:href': file['ref']})
-                file_elem.close_entry(2)
-            self.xl.close_entry()
-        self.xl.close_entry()
-
     def create_structmap(self):
-        self.xl.elem('structMap', {'ID': 'structMap-1', 'TYPE': 'logical', 'LABEL': 'Logical structure'}).elem('div')
+        self.xl.elem('structMap', {'ID': 'structMap_iish', 'TYPE': 'logical', 'LABEL': 'IISH structure'}).elem('div')
 
         last_seq = None
         for file in self.files:
@@ -124,7 +107,7 @@ class CreateMETS:
                 last_seq = file['seq']
                 self.xl.elem('div', {'LABEL': 'Page ' + str(file['seq']), 'ORDER': str(file['seq']), 'TYPE': 'page'})
 
-            self.xl.elem('fptr', {'FILEID': file['id']}).close_entry()
+            self.xl.elem('fptr', {'FILEID': file['ref']}).close_entry()
 
         self.xl.close_entry(3)
 

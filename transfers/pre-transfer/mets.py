@@ -8,6 +8,7 @@ import sys
 import getopt
 from itertools import groupby
 from xml.sax.saxutils import XMLGenerator
+from preservation import Preservation
 
 _attributes = {u'xmlns': 'http://www.loc.gov/METS/',
                u'xmlns:xlink': 'http://www.w3.org/1999/xlink',
@@ -78,7 +79,7 @@ class CreateMETS:
         file_counter = 0
 
         for directory in os.listdir(self.fileset):
-            if os.path.isdir(self.fileset + '/' + directory):
+            if os.path.isdir(self.fileset + '/' + directory) and directory in Preservation.FILE_GROUP:
                 for file in os.listdir(self.fileset + '/' + directory):
                     if os.path.isfile(self.fileset + '/' + directory + '/' + file):
                         file_counter += 1

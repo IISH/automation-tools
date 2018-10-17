@@ -10,7 +10,6 @@ from xml.sax.saxutils import XMLGenerator
 from preservation import Preservation
 
 _attributes = {u'xmlns': 'http://www.loc.gov/METS/',
-               u'xmlns:xlink': 'http://www.w3.org/1999/xlink',
                'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
                'xsi:schemaLocation': 'http://www.loc.gov/METS/ http://www.loc.gov/standards/mets/mets.xsd'}
 

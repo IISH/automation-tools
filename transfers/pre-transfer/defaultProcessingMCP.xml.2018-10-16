@@ -20,20 +20,20 @@
       <appliesTo>087d27be-c719-47d8-9bbb-9a7d8b609c44</appliesTo>
       <goToChain>782bbf56-e220-48b5-9eb6-6610583f2072</goToChain>
     </preconfiguredChoice>
-    <!-- Normalize (match 1 for "Do not normalize") -->
+    <!-- Normalize (match 1 for "Normalize for preservation") -->
     <preconfiguredChoice>
       <appliesTo>cb8e5706-e73f-472f-ad9b-d1236af8095f</appliesTo>
-      <goToChain>89cb80dd-0636-464f-930d-57b61e3928b2</goToChain>
+      <goToChain>612e3609-ce9a-4df6-a9a3-63d634d2d934</goToChain>
     </preconfiguredChoice>
-    <!-- Normalize (match 2 for "Do not normalize") -->
+    <!-- Normalize (match 2 for "Normalize for preservation") -->
     <preconfiguredChoice>
       <appliesTo>7509e7dc-1e1b-4dce-8d21-e130515fce73</appliesTo>
-      <goToChain>e8544c5e-9cbb-4b8f-a68b-6d9b4d7f7362</goToChain>
+      <goToChain>612e3609-ce9a-4df6-a9a3-63d634d2d934</goToChain>
     </preconfiguredChoice>
     <!-- Bind PIDs -->
     <preconfiguredChoice>
       <appliesTo>05357876-a095-4c11-86b5-a7fff01af668</appliesTo>
-      <goToChain>1e79e1b6-cf50-49ff-98a3-fa51d73553dc</goToChain>
+      <goToChain>fcfea449-158c-452c-a8ad-4ae009c4eaba</goToChain>
     </preconfiguredChoice>
     <!-- Create SIP(s) -->
     <preconfiguredChoice>
@@ -108,7 +108,7 @@
     <!-- Assign UUIDs to directories -->
     <preconfiguredChoice>
       <appliesTo>bd899573-694e-4d33-8c9b-df0af802437d</appliesTo>
-      <goToChain>891f60d0-1ba8-48d3-b39e-dd0934635d29</goToChain>
+      <goToChain>2dc3f487-e4b0-4e07-a4b3-6216ed24ca14</goToChain>
     </preconfiguredChoice>
     <!-- Store AIP location -->
     <preconfiguredChoice>
@@ -118,7 +118,7 @@
     <!-- Document empty directories -->
     <preconfiguredChoice>
       <appliesTo>d0dfa5fc-e3c2-4638-9eda-f96eea1070e0</appliesTo>
-      <goToChain>65273f18-5b4e-4944-af4f-09be175a88e8</goToChain>
+      <goToChain>29881c21-3548-454a-9637-ebc5fd46aee0</goToChain>
     </preconfiguredChoice>
     <!-- Send transfer to quarantine -->
     <preconfiguredChoice>

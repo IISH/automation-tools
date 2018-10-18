@@ -246,14 +246,14 @@ def get_next_transfer(ss_url, ss_user, ss_api_key, ts_location_uuid,
         entries = browse_info['directories']
 
     entries = [base64.b64decode(e.encode('utf8')) for e in entries]
-    LOGGER.debug('Entries: %s', entries)
+    LOGGER.info('Entries: %s', entries)
     entries = [os.path.join(path_prefix, e) for e in entries]
     # If at the correct depth, check if any of these have not been made into
     # transfers yet
     if depth <= 1:
         # Find the directories that are not already in the DB using sets
         entries = set(entries) - completed
-        LOGGER.debug("New transfer candidates: %s", entries)
+        LOGGER.info("New transfer candidates: %s", entries)
         # Sort, take the first
         entries = sorted(list(entries))
         if not entries:

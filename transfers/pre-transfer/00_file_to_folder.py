@@ -18,8 +18,9 @@ def main(transfer_path):
     temp_dir = os.path.join(transfer_dir, 'temp-' + str(datetime.datetime.utcnow()))
     os.mkdir(temp_dir)
     os.rename(transfer_path, os.path.join(temp_dir, transfer_name))
-    # Rename temp dir to the same as the file
-    os.rename(temp_dir, transfer_path)
+    # Rename temp dir to the same as the file, minus the extension
+    transfer_path = os.path.split(transfer_path, '.', 0)
+    os.rename(temp_dir, transfer_path('.')[0])
 
 
 if __name__ == '__main__':

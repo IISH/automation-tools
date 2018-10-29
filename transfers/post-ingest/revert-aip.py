@@ -74,7 +74,9 @@ class AipReverter:
             new_folder = self.__tree \
                 .findtext('mets:dmdSec[@ID="' + dmd_id + '"]//premisv3:originalName', namespaces=NSMAP) \
                 .replace('%SIPDirectory%objects/', '') \
-                .replace('%transferDirectory%objects/', '')
+                .replace('%SIPDirectory%data/', '') \
+                .replace('%transferDirectory%objects/', '') \
+                .replace('%transferDirectory%data/', '')
             os.makedirs(os.path.join(self.__reverted_location, new_folder))
 
     def __restore_file(self, node, parents):
@@ -93,7 +95,8 @@ class AipReverter:
                                            namespaces=NSMAP)
             new_file = premis_node \
                 .findtext('premis:originalName', namespaces=NSMAP) \
-                .replace('%transferDirectory%objects/', '')
+                .replace('%transferDirectory%objects/', '') \
+                .replace('%transferDirectory%data/', '')
 
             aip_file_path = os.path.join(self.__aip_location, file_path)
             reverted_file_path = os.path.join(self.__reverted_location, new_file)
@@ -137,7 +140,7 @@ class AipReverter:
         # Then try the MediaInfo tool
         if not modify_date:
             mediainfo_modify_date = object_characteristics.findtext('.//mediainfo:File_Modified_Date', namespaces=NSMAP)
-            if mediainfo_modify_date.startswith('UTC'):
+            if mediainfo_modify_date and mediainfo_modify_date.startswith('UTC'):
                 mediainfo_modify_date = mediainfo_modify_date.replace('UTC ', '') + ' UTC'
 
             if mediainfo_modify_date:

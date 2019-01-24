@@ -1,13 +1,26 @@
 #!/usr/bin/env python
+# coding=utf-8
 #
 # validate.py
 #
-# Validates a folder structure
+# Validates a folder structure. Each folder should conform to this convention:
+#
+# naming authority
+#  [ARCHIVAL INVENTORY].[NUMBER]/[GROUP (unique and repeatable)]/[ARCHIVAL INVENTORY].[NUMBER]_[SEQUENCE].[EXTENSION]
+#
+# Example: validate "10622/ARCH00842.1"
+# 10622
+# ├── ARCH00842.1
+# │   └── preservation
+# │       ├── ARCH00842.1_0001.tif
+# │       └── ARCH00842.1_0002.tif
+
 import getopt
 import os
 import sys
 from preservation import Preservation
 from error import Error
+import re
 
 
 class ValidateFolder:
@@ -83,40 +96,42 @@ class ValidateFolder:
         # Validate 5:
         # If there are folders with inventory numbers, all files should be in an inventory number folder
         # --------------------------------------------------------------------------------------------------------------
-        contains_inv_numbers = None
-        for folder in folders:
-            for item in os.listdir(self.fileset + '/' + folder):
-                if contains_inv_numbers is None:
-                    contains_inv_numbers = os.path.isdir(self.fileset + '/' + folder + '/' + item)
-
-                if contains_inv_numbers is not os.path.isdir(self.fileset + '/' + folder + '/' + item):
-                    self.error(Error.MIXED_INV_NO, Error.MIXED_INV_NO_MSG)
-                    return
-
-        if contains_inv_numbers:
-            self.type = 'archive'
+        # contains_inv_numbers = None
+        # for folder in folders:
+        #     for item in os.listdir(self.fileset + '/' + folder):
+        #         if contains_inv_numbers is None:
+        #             contains_inv_numbers = os.path.isdir(self.fileset + '/' + folder + '/' + item)
+        #
+        #         if contains_inv_numbers is not os.path.isdir(self.fileset + '/' + folder + '/' + item):
+        #             self.error(Error.MIXED_INV_NO, Error.MIXED_INV_NO_MSG)
+        #             return
+        # if contains_inv_numbers:
+        self.type = 'archive'
 
         # --------------------------------------------------------------------------------------------------------------
         # Validate 6:
         # All filenames should match the convention
         # --------------------------------------------------------------------------------------------------------------
-        if self.type == 'archive':
-            for folder in folders:
-                for inv_no in os.listdir(self.fileset + '/' + folder):
-                    for filename in os.listdir(self.fileset + '/' + folder + '/' + inv_no):
-                        item = filename.split('_', 1)
-                        if len(item) != 2 or item[0] != accession_id + '.' + inv_no or item[1].isdigit():
-                            self.error(Error.INVALID_FILENAME,
-                                       Error.INVALID_FILENAME_MSG.format(filename,
-                                                                         accession_id + '.' + inv_no + '_'))
-        else:
-            for folder in folders:
-                for filename in os.listdir(self.fileset + '/' + folder):
-                    item = filename.split('_', 1)
-                    if len(item) != 2 or item[0] != accession_id or item[1].isdigit():
-                        self.error(Error.INVALID_FILENAME,
-                                   Error.INVALID_FILENAME_MSG.format(filename,
-                                                                     accession_id + '_'))
+        # if self.type == 'archive':
+        #     for folder in folders:
+        #         for inv_no in os.listdir(self.fileset + '/' + folder):
+        #             for filename in os.listdir(self.fileset + '/' + folder + '/' + inv_no):
+        #                 item = filename.split('_', 1)
+        #                 if len(item) != 2 or item[0] != accession_id + '.' + inv_no or item[1].isdigit():
+        #                     self.error(Error.INVALID_FILENAME,
+        #                                Error.INVALID_FILENAME_MSG.format(filename,
+        #                                                                  accession_id + '.' + inv_no + '_'))
+        # else:
+        # [ARCHIEF][DOT][INVENTORY][UNDERSCORE][SEQUENCE][DOT][EXTENSION]
+        pattern = '^[a-zA-Z0-9]+\\.[0-9]+_[0-9]*\\.[a-zA-Z]+$'
+        compiled_pattern = re.compile(pattern)
+        for folder in folders:
+            for filename in os.listdir(self.fileset + '/' + folder):
+                if compiled_pattern.match(filename):
+                    self.info("Ok... {}".format(filename))
+                else:
+                    self.error(Error.INVALID_FILENAME,
+                               Error.INVALID_FILENAME_MSG.format(filename, pattern))
         if self.report['error']:
             return
 
@@ -126,28 +141,74 @@ class ValidateFolder:
         # --------------------------------------------------------------------------------------------------------------
         all_filenames = []
         for root, dirs, files in os.walk(self.fileset + '/preservation'):
-            all_filenames.extend([os.path.splitext(file)[0] for file in files])
+            all_filenames.extend([os.path.splitext(f)[0] for f in files])
         for root, dirs, files in os.walk(self.fileset):
-            for file in files:
-                if not os.path.splitext(file)[0] in all_filenames:
+            for f in files:
+                if not os.path.splitext(f)[0] in all_filenames:
                     self.error(Error.NO_PRESERVATION_FILE,
-                               Error.NO_PRESERVATION_FILE_MSG.format(file))
+                               Error.NO_PRESERVATION_FILE_MSG.format(f))
         if self.report['error']:
             return
+
+        # --------------------------------------------------------------------------------------------------------------
+        # Validate 8:
+        # Ensure our sequences are indeed numeric.
+        # --------------------------------------------------------------------------------------------------------------
+        for folder in folders:
+            files = set()
+            for item in os.listdir(self.fileset + '/' + folder):  # item is a file: ARCH12345.6_00001.tif
+                sequence = item.split("_")[1]  # 00001.tif
+                sequence = sequence.split(".")[0]  # 00001
+                if sequence.isdigit():
+                    sequence = int(sequence)
+                    if sequence in files:
+                        self.error(Error.SEQUENCE_NOT_UNIQUE, Error.SEQUENCE_NOT_UNIQUE_MSG.format(sequence))
+                    else:
+                        files.add(sequence)
+
+                else:
+                    self.error(Error.INVALID_FILENAME, Error.INVALID_FILENAME_MSG.format(item, accession_id + '_'))
+
+            if self.report['error']:
+                return
+
+            # ----------------------------------------------------------------------------------------------------------
+            # Validate 9:
+            # Does the set start with an element 1?
+            # ----------------------------------------------------------------------------------------------------------
+            sorted_list = sorted(files, key=int)
+            if sorted_list[0] != 1:
+                self.error(Error.SEQUENCE_DOES_NOT_START_WITH_1, Error.SEQUENCE_DOES_NOT_START_WITH_1_MSG)
+                return
+
+            # ----------------------------------------------------------------------------------------------------------
+            # Validate 10:
+            # Does the set increment with 1?
+            # ----------------------------------------------------------------------------------------------------------
+            for index in range(0, len(sorted_list)):
+                expect = index + 1
+                actual = sorted_list[index]
+                if expect != actual:
+                    self.error(Error.SEQUENCE_INTERVAL_NOT_1, Error.SEQUENCE_INTERVAL_NOT_1_MSG.format(expect, actual))
+
+            if self.report['error']:
+                return
 
 
 def unit_tests():
     print('Run unit tests.')
 
     this_dir = os.path.abspath(os.path.dirname(__file__))
-    tests = {'ARCH1': Error.EMPTY_FOLDER, 'ARCH2': Error.NO_GROUPS, 'ARCH3': Error.UNKNOWN_GROUPS,
-             'ARCH4': Error.PRESERVATION_FOLDER_MISSING, 'ARCH5': Error.MIXED_INV_NO,
-             'ARCH6': Error.INVALID_FILENAME, 'ARCH7': Error.NO_PRESERVATION_FILE,
-             'ARCH0': 0}
+    tests = {'ARCH67890.1': Error.EMPTY_FOLDER, 'ARCH67890.2': Error.NO_GROUPS, 'ARCH67890.3': Error.UNKNOWN_GROUPS,
+             'ARCH67890.4': Error.PRESERVATION_FOLDER_MISSING,  # 'ARCH67890.5': Error.MIXED_INV_NO,
+             'ARCH67890.6': Error.INVALID_FILENAME, 'ARCH67890.7': Error.NO_PRESERVATION_FILE,
+             'ARCH67890.8': Error.SEQUENCE_NOT_UNIQUE, 'ARCH67890.9': Error.SEQUENCE_DOES_NOT_START_WITH_1,
+             'ARCH67890.10': Error.SEQUENCE_INTERVAL_NOT_1,
+             'ARCH67890.0': 0}
     errors = 0
     # noinspection PyCompatibility
     for key, value in tests.iteritems():
-        validate = ValidateFolder((this_dir + '/tests/' + key))
+        validate = ValidateFolder((this_dir + '/tests/12345/' + key))
         validate.run()
         if not value or value in validate.report['codes']:
             print("OK... {} {} {}".format(key, value, validate.report['error']))

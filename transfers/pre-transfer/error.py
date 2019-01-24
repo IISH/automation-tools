@@ -10,6 +10,12 @@ class Error:
     MIXED_INV_NO = 5
     MIXED_INV_NO_MSG = "Found files without inventory numbers"
     INVALID_FILENAME = 6
-    INVALID_FILENAME_MSG = "Found file with name '{}', but expected the name '{}' ending with a sequence number"
+    INVALID_FILENAME_MSG = "Found file with name '{}', but expected format {}"
     NO_PRESERVATION_FILE = 7
     NO_PRESERVATION_FILE_MSG = "Found file with name '{}' which does not have a preservation file"
+    SEQUENCE_NOT_UNIQUE = 8
+    SEQUENCE_NOT_UNIQUE_MSG = "Sequence is used before '{}'"
+    SEQUENCE_DOES_NOT_START_WITH_1 = 9
+    SEQUENCE_DOES_NOT_START_WITH_1_MSG = "Sequences must start with the number 1"
+    SEQUENCE_INTERVAL_NOT_1 = 10
+    SEQUENCE_INTERVAL_NOT_1_MSG = "Sequences should start from 1 and increment by 1. Expect {} but got {}"

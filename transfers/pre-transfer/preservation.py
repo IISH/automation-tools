@@ -1,2 +1,2 @@
 class Preservation:
-    FILE_GROUP = ['access', 'preservation', 'transcription']
+    FILE_GROUP = ['preservation', 'transcription']

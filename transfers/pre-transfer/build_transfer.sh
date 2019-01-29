@@ -31,7 +31,7 @@ f=0
 function add_group {
     group="$1"
     f=1
-    for preserve in $PRESERVATION
+    for preserve in ${PRESERVATION}
     do
         if [[ "$group" == "$preserve" ]]
         then

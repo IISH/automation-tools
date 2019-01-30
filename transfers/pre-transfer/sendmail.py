@@ -13,14 +13,13 @@ from email.mime.text import MIMEText
 
 
 def send(_body, _from, _to, _subject, _mail_relay, _mail_user, _mail_password):
-    print('Attempting to send body ' +_body +
+    print('Attempting to send mail ' +
           ' from ' + _from +
           ' with subject ' + _subject +
           ' to ' + _to +
           ' via ' + _mail_relay)
 
     msg = MIMEText(_body, 'plain', 'utf8')
-
     msg['Subject'] = _subject
     msg['From'] = _from
     msg['To'] = _to

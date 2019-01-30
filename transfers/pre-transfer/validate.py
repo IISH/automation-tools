@@ -76,7 +76,7 @@ class ValidateFolder:
         # All folders in the fileset must conform to known fileGroup use types.
         # --------------------------------------------------------------------------------------------------------------
         for folder in folders:
-            if folder in Preservation.FILE_GROUP:
+            if folder in Preservation.FILE_GROUP or folder in Preservation.FILE_ACCESS_GROUP:
                 self.info("Ok... FileGroup {}".format(folder))
             else:
                 self.error(Error.UNKNOWN_GROUPS,
@@ -96,42 +96,22 @@ class ValidateFolder:
         # Validate 5:
         # If there are folders with inventory numbers, all files should be in an inventory number folder
         # --------------------------------------------------------------------------------------------------------------
-        # contains_inv_numbers = None
-        # for folder in folders:
-        #     for item in os.listdir(self.fileset + '/' + folder):
-        #         if contains_inv_numbers is None:
-        #             contains_inv_numbers = os.path.isdir(self.fileset + '/' + folder + '/' + item)
-        #
-        #         if contains_inv_numbers is not os.path.isdir(self.fileset + '/' + folder + '/' + item):
-        #             self.error(Error.MIXED_INV_NO, Error.MIXED_INV_NO_MSG)
-        #             return
-        # if contains_inv_numbers:
         self.type = 'archive'
 
         # --------------------------------------------------------------------------------------------------------------
         # Validate 6:
         # All filenames should match the convention
         # --------------------------------------------------------------------------------------------------------------
-        # if self.type == 'archive':
-        #     for folder in folders:
-        #         for inv_no in os.listdir(self.fileset + '/' + folder):
-        #             for filename in os.listdir(self.fileset + '/' + folder + '/' + inv_no):
-        #                 item = filename.split('_', 1)
-        #                 if len(item) != 2 or item[0] != accession_id + '.' + inv_no or item[1].isdigit():
-        #                     self.error(Error.INVALID_FILENAME,
-        #                                Error.INVALID_FILENAME_MSG.format(filename,
-        #                                                                  accession_id + '.' + inv_no + '_'))
-        # else:
-        # [ARCHIEF][DOT][INVENTORY][UNDERSCORE][SEQUENCE][DOT][EXTENSION]
         pattern = '^[a-zA-Z0-9]+\\.[0-9]+_[0-9]*\\.[a-zA-Z]+$'
         compiled_pattern = re.compile(pattern)
         for folder in folders:
-            for filename in os.listdir(self.fileset + '/' + folder):
-                if compiled_pattern.match(filename):
-                    self.info("Ok... {}".format(filename))
-                else:
-                    self.error(Error.INVALID_FILENAME,
-                               Error.INVALID_FILENAME_MSG.format(filename, pattern))
+            if folder in Preservation.FILE_GROUP:
+                for filename in os.listdir(self.fileset + '/' + folder):
+                    if compiled_pattern.match(filename):
+                        self.info("Ok... {}".format(filename))
+                    else:
+                        self.error(Error.INVALID_FILENAME,
+                                   Error.INVALID_FILENAME_MSG.format(filename, pattern))
         if self.report['error']:
             return
 
@@ -150,49 +130,67 @@ class ValidateFolder:
         if self.report['error']:
             return
 
+        # Same for access copies
+        access_copies = os.listdir(self.fileset + '/access')
+        for access_copy in access_copies:
+            all_filenames = []
+            for root, dirs, files in os.walk(self.fileset + '/access/' + access_copy):
+                    all_filenames.extend([os.path.splitext(f)[0] for f in files])
+            for root, dirs, files in os.walk(self.fileset):
+                for f in files:
+                    if not os.path.splitext(f)[0] in all_filenames:
+                        self.error(Error.NO_PRESERVATION_FILE,
+                                   Error.NO_PRESERVATION_FILE_MSG.format(f))
+        if self.report['error']:
+            return
+
         # --------------------------------------------------------------------------------------------------------------
         # Validate 8:
         # Ensure our sequences are indeed numeric.
         # --------------------------------------------------------------------------------------------------------------
         for folder in folders:
             files = set()
-            for item in os.listdir(self.fileset + '/' + folder):  # item is a file: ARCH12345.6_00001.tif
-                sequence = item.split("_")[1]  # 00001.tif
-                sequence = sequence.split(".")[0]  # 00001
-                if sequence.isdigit():
-                    sequence = int(sequence)
-                    if sequence in files:
-                        self.error(Error.SEQUENCE_NOT_UNIQUE, Error.SEQUENCE_NOT_UNIQUE_MSG.format(sequence))
+            if folder in Preservation.FILE_GROUP:
+                for item in os.listdir(self.fileset + '/' + folder):  # item is a file: ARCH12345.6_00001.tif
+                    sequence = item.split("_")[1]  # 00001.tif
+                    sequence = sequence.split(".")[0]  # 00001
+                    if sequence.isdigit():
+                        sequence = int(sequence)
+                        if sequence in files:
+                            self.error(Error.SEQUENCE_NOT_UNIQUE, Error.SEQUENCE_NOT_UNIQUE_MSG.format(sequence))
+                        else:
+                            files.add(sequence)
+
                     else:
-                        files.add(sequence)
+                        self.error(Error.INVALID_FILENAME, Error.INVALID_FILENAME_MSG.format(item, accession_id + '_'))
 
-                else:
-                    self.error(Error.INVALID_FILENAME, Error.INVALID_FILENAME_MSG.format(item, accession_id + '_'))
+                if self.report['error']:
+                    return
 
-            if self.report['error']:
-                return
+                # ----------------------------------------------------------------------------------------------------------
+                # Validate 9:
+                # Does the set start with an element 1?
+                # ----------------------------------------------------------------------------------------------------------
+                sorted_list = sorted(files, key=int)
+                if sorted_list[0] != 1:
+                    self.error(Error.SEQUENCE_DOES_NOT_START_WITH_1, Error.SEQUENCE_DOES_NOT_START_WITH_1_MSG)
+                    return
 
-            # ----------------------------------------------------------------------------------------------------------
-            # Validate 9:
-            # Does the set start with an element 1?
-            # ----------------------------------------------------------------------------------------------------------
-            sorted_list = sorted(files, key=int)
-            if sorted_list[0] != 1:
-                self.error(Error.SEQUENCE_DOES_NOT_START_WITH_1, Error.SEQUENCE_DOES_NOT_START_WITH_1_MSG)
-                return
+                # ----------------------------------------------------------------------------------------------------------
+                # Validate 10:
+                # Does the set increment with 1?
+                # ----------------------------------------------------------------------------------------------------------
+                for index in range(0, len(sorted_list)):
+                    expect = index + 1
+                    actual = sorted_list[index]
+                    if expect != actual:
+                        self.error(Error.SEQUENCE_INTERVAL_NOT_1, Error.SEQUENCE_INTERVAL_NOT_1_MSG.format(expect, actual))
 
-            # ----------------------------------------------------------------------------------------------------------
-            # Validate 10:
-            # Does the set increment with 1?
-            # ----------------------------------------------------------------------------------------------------------
-            for index in range(0, len(sorted_list)):
-                expect = index + 1
-                actual = sorted_list[index]
-                if expect != actual:
-                    self.error(Error.SEQUENCE_INTERVAL_NOT_1, Error.SEQUENCE_INTERVAL_NOT_1_MSG.format(expect, actual))
+                if self.report['error']:
+                    return
 
-            if self.report['error']:
-                return
+    def exitcode(self):
+        return len(self.report['error'])
 
 
 def unit_tests():
@@ -255,6 +253,7 @@ def main(argv):
         assert fileset
         validate = ValidateFolder(fileset)
         validate.run()
+        sys.exit(validate.exitcode())
 
 
 if __name__ == '__main__':

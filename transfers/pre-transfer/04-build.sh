@@ -15,40 +15,31 @@
 
 set -e
 
-DIRNAME=`dirname "$0"`
-if [[ -z "$DIRNAME" ]]
-then
-    DIRNAME=$(pwd)
-fi
+WORK="build"
+source 01-settings.sh "$WORK"
 
 FILESET=""
 NA=10622 # This value could also be gotten from the parent folder of the fileset
-METADATA="metadata"
-PRESERVATION="preservation transcription"
+METADATA_FOLDER="metadata"
+ACCESS_COPIES_FOLDER="access"
 ACCESSION_NUMBER=""
 f=0
 
 function add_group {
     group="$1"
-    f=1
-    for preserve in ${PRESERVATION}
+    f=0
+    for system in ${ACCESS_COPIES_FOLDER} ${METADATA_FOLDER}
     do
-        if [[ "$group" == "$preserve" ]]
+        if [[ "$group" == "$system" ]]
         then
-            f=0
+            f=1
             break
         fi
     done
 }
 
 function checksums {
-    file_checksum="${METADATA}/checksum.md5"
-    if [[ -f "$file_checksum" ]]
-    then
-        echo "File exists ${file_checksum}... delete this file if you want to recreate it"
-        return
-    fi
-
+    file_checksum="${METADATA_FOLDER}/checksum.md5"
     echo "Building checksum ${file_checksum}"
     for group in *
     do
@@ -60,7 +51,7 @@ function checksums {
     done
 
     # special case for access copies
-    for group in "access/"*
+    for group in "${ACCESS_COPIES_FOLDER}/"*
     do
         /usr/bin/md5sum "$group"/* >> "$file_checksum"
     done
@@ -68,15 +59,10 @@ function checksums {
 
 function identifiers {
 
-    identifiers_file="${METADATA}/identifiers.json"
-    if [[ -f "$identifiers_file" ]]
-    then
-        echo "File exists ${identifiers_file}... delete this file if you want to recreate it"
-        return
-    fi
-
+    identifiers_file="${METADATA_FOLDER}/identifiers.json"
     echo "Building identifiers ${identifiers_file}"
     last=""
+    echo "[" > "$identifiers_file"
     for group in *
     do
         add_group "$group"
@@ -110,10 +96,12 @@ function identifiers {
             done
         fi
     done
+    echo "]" >> "$identifiers_file"
 }
 
 function mets {
-    mets_file="${METADATA}/mets_structmap.xml"
+    fileset="$1"
+    mets_file="${METADATA_FOLDER}/mets_structmap.xml"
     if [[ -f "$mets_file" ]]
     then
         echo "File exists ${mets_file}... delete this file if you want to recreate it"
@@ -121,35 +109,37 @@ function mets {
     fi
 
     echo "Building METS ${mets_file}"
-
-    "${DIRNAME}/../../work/virtualenv/bin/python2" "${DIRNAME}/mets.py" --fileset="$FILESET"
+    CMD="${PYTHON} \"${DIRNAME}/mets.py\" --fileset=\"${fileset}\""
+    echo "$CMD"
+    eval "${CMD}"
 }
 
 function main {
-    FILESET="$1"
-    if [[ -z "$FILESET" ]]
-    then
-        echo "Fileset cannot be empty".
-        exit 1
-    else
-        if [[ ! -d "$FILESET" ]]
+    for fileset in "${FILESETS}/${WORK}/"*
+    do
+        if [[ -d "$fileset" ]]
         then
-            echo "No such directory: ${FILESET}".
-            exit 1
+            queued "$fileset" "$WORK"
+            if [[ "$?" == 0 ]]
+            then
+                echo "Found ${fileset}"
+                cd "$fileset"
+                if [[ -d "${METADATA_FOLDER}" ]]
+                then
+                    rm -rf "${METADATA_FOLDER}"
+                fi
+                mkdir "${METADATA_FOLDER}"
+                checksums
+                identifiers
+                mets "$fileset"
+                touch "$fileset/ingest.txt"
+                log "Move to ready" "Move ${fileset} to ready folder"
+                mv "$fileset" "${FILESETS}/ready/"
+            fi
+        else
+            echo "Ignoring file ${fileset}"
         fi
-    fi
-
-    ACCESSION_NUMBER=${PWD##*/}
-
-    cd "$FILESET"
-    if [[ ! -d "$METADATA" ]]
-    then
-        mkdir "$METADATA"
-    fi
-
-    checksums
-    identifiers
-    mets
+    done
 }
 
-main "$@"
+main

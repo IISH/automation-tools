@@ -19,11 +19,7 @@ function setup {
 
     source /etc/default/archivematica-storage-service
 
-    DIRNAME=`dirname "$0"`
-    if [[ -z "$DIRNAME" ]]
-    then
-        DIRNAME=$(pwd)
-    fi
+    DIRNAME=$(pwd)
 
     if [[ ! -d "$FILESETS" ]] || [[ ! -d "${FILESETS}/${WORK}" ]]
     then

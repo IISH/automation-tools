@@ -132,9 +132,10 @@ function main {
                 checksums
                 identifiers
                 mets "$fileset"
-                touch "$fileset/ingest.txt"
                 log "Move to ready" "Move ${fileset} to ready folder"
                 mv "$fileset" "${FILESETS}/ready/"
+                archival_id=$(basename "$fileset")
+                touch "${FILESETS}/ready/${archival_id}/ingest.txt"
             fi
         else
             echo "Ignoring file ${fileset}"

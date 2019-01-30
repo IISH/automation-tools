@@ -58,7 +58,7 @@ function sendmail {
     log "$subject" "$body"
 
     "$PYTHON" "${DIRNAME}/sendmail.py" \
-        --body="Report from $(/bin/hostname --fqdn)\n\n${body}" \
+        --body="Report from $(/bin/hostname --fqdn) ${body}" \
         --from="${EMAIL_HOST_USER}" \
         --to="${EMAIL_TO}" \
         --mail_relay="${EMAIL_HOST}" \
@@ -72,14 +72,12 @@ function sendmail {
 # Stop if this script is already running in another thread.
 #-----------------------------------------------------------------------------------------------------------------------
 function singleton {
-    self="$(/usr/bin/basename $0)"
-    c=$(ps ax | grep "/bin/bash" | grep "$self" | wc -l)
-    if [[ "$c" < 3 ]]
+    self="01-${WORK}.sh"
+    if (( $(pgrep -c "$self") == 1 ))
     then
         /bin/echo "Instantiating ${self}"
     else
         /bin/echo "Already running an instance of ${self}"
-        # Exit silently.
         exit 0
     fi
 }

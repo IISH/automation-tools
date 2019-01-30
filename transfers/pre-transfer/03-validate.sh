@@ -43,7 +43,7 @@ function main {
                     log "Move to build" "Move ${fileset} to build folder"
                     mv "$fileset" "${FILESETS}/build/"
                 else
-                    sendmail "Validation error" "Fileset ${fileset} is not well structured.\n\nSee the log in ${FILESETS}"
+                    sendmail "Validation error" "Fileset ${fileset} is not well structured. See the log in ${FILESETS}"
                     mv "$fileset" "${FILESETS}/fail/"
                 fi
             fi

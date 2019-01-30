@@ -131,18 +131,19 @@ class ValidateFolder:
             return
 
         # Same for access copies
-        access_copies = os.listdir(self.fileset + '/access')
-        for access_copy in access_copies:
-            all_filenames = []
-            for root, dirs, files in os.walk(self.fileset + '/access/' + access_copy):
-                    all_filenames.extend([os.path.splitext(f)[0] for f in files])
-            for root, dirs, files in os.walk(self.fileset):
-                for f in files:
-                    if not os.path.splitext(f)[0] in all_filenames:
-                        self.error(Error.NO_PRESERVATION_FILE,
-                                   Error.NO_PRESERVATION_FILE_MSG.format(f))
-        if self.report['error']:
-            return
+        if os.path.isdir(self.fileset + '/access'):
+            access_copies = os.listdir(self.fileset + '/access')
+            for access_copy in access_copies:
+                all_filenames = []
+                for root, dirs, files in os.walk(self.fileset + '/access/' + access_copy):
+                        all_filenames.extend([os.path.splitext(f)[0] for f in files])
+                for root, dirs, files in os.walk(self.fileset):
+                    for f in files:
+                        if not os.path.splitext(f)[0] in all_filenames:
+                            self.error(Error.NO_PRESERVATION_FILE,
+                                       Error.NO_PRESERVATION_FILE_MSG.format(f))
+            if self.report['error']:
+                return
 
         # --------------------------------------------------------------------------------------------------------------
         # Validate 8:

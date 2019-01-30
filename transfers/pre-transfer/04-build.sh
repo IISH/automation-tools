@@ -53,7 +53,10 @@ function checksums {
     # special case for access copies
     for group in "${ACCESS_COPIES_FOLDER}/"*
     do
-        /usr/bin/md5sum "$group"/* >> "$file_checksum"
+        if [[ -d "$group" ]]
+        then
+            /usr/bin/md5sum "$group"/* >> "$file_checksum"
+        fi
     done
 }
 

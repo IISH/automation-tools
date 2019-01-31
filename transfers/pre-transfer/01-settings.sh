@@ -3,6 +3,7 @@
 #-----------------------------------------------------------------------------------------------------------------------
 # Settings global
 #-----------------------------------------------------------------------------------------------------------------------
+NA=""
 WORK=""
 DIRNAME=""
 FILESETS=""
@@ -11,6 +12,9 @@ EMAIL_HOST_USER=""
 EMAIL_HOST=""
 EMAIL_TO=""
 EMAIL_HOST_PASSWORD=""
+CATALOG_URL=""
+PID_WEBSERVICE_KEY=""
+PID_WEBSERVICE_ENDPOINT=""
 
 #-----------------------------------------------------------------------------------------------------------------------
 # load variables setup
@@ -72,8 +76,9 @@ function sendmail {
 # Stop if this script is already running in another thread.
 #-----------------------------------------------------------------------------------------------------------------------
 function singleton {
-    self="01-${WORK}.sh"
-    if (( $(pgrep -c "$self") == 1 ))
+    self="${WORK}.sh"
+    c=$(pgrep -c "$self")
+    if [[ "$c" == 2 ]]
     then
         /bin/echo "Instantiating ${self}"
     else
@@ -87,7 +92,7 @@ function queued {
     fileset="$1"
     work="$2"
     archival_id=$(basename "$fileset")
-    for queue in build fail ready stage validate
+    for queue in build fail pbind ready stage validate
     do
         if [[ -d "${FILESETS}/${queue}/${archival_id}" ]]
         then

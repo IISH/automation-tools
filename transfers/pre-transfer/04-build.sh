@@ -19,7 +19,6 @@ WORK="build"
 source 01-settings.sh "$WORK"
 
 FILESET=""
-NA=10622 # This value could also be gotten from the parent folder of the fileset
 METADATA_FOLDER="metadata"
 ACCESS_COPIES_FOLDER="access"
 ACCESSION_NUMBER=""
@@ -135,10 +134,9 @@ function main {
                 checksums
                 identifiers
                 mets "$fileset"
-                log "Move to ready" "Move ${fileset} to ready folder"
-                mv "$fileset" "${FILESETS}/ready/"
-                archival_id=$(basename "$fileset")
-                touch "${FILESETS}/ready/${archival_id}/ingest.txt"
+                chown -R archivematica:archivematica "$fileset"
+                log "Move to pbind" "Move ${fileset} to pbind folder"
+                mv "$fileset" "${FILESETS}/pbind/"
             fi
         else
             echo "Ignoring file ${fileset}"

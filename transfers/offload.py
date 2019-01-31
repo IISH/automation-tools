@@ -99,7 +99,7 @@ def main(source_location, candidates, see_files, log_name):
         location_entry = source_location + '/' + entry.decode('utf-8')
         an = get_accession_number.parse(location_entry)
         an_found = find_accession_number(an)
-        LOGGER.debug('offload location=' + location_entry + ' an=' + an + ' an_found' + an_found)
+        LOGGER.debug('offload location=' + location_entry + ' an=' + an + ' an_found' + str(an_found))
         if an and an_found and file(location_entry, see_files):
             selected.add(entry)
     return selected

@@ -119,19 +119,21 @@ def call_url_json(url, params):
 
 def set_pid_file(pid_file):
     # Check for evidence that this is already running
-    f = os.fdopen(os.open(pid_file, os.O_CREAT | os.O_RDWR), 'r+')
-    running_pid = f.read()
-
-    try:
-        os.kill(int(running_pid), 0)
-        LOGGER.info('This script is already running. To override this behaviour and start a new run, remove %s',
-                    pid_file)
-        return False
-    except (OSError, ValueError):
-        pid = os.getpid()
-        f.write(str(pid))
-        f.close()
-        return True
+    with  os.fdopen(os.open(pid_file, os.O_CREAT | os.O_RDWR), 'r+') as f:
+        running_pid = f.read()
+        try:
+            os.kill(int(running_pid), 0)
+            LOGGER.info('This script is already running. To override this behaviour and start a new run, remove %s',
+                        pid_file)
+            f.close()
+            return False
+        except (OSError, ValueError):
+                pid = os.getpid()
+                f.seek(0)
+                f.write(str(pid))
+                f.truncate()
+                f.close()
+                return True
 
 
 def setup(config_file, log_name, log_level):

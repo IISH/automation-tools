@@ -53,7 +53,4 @@ def parse_value(text):
 
 
 def parse(dirname):
-    an = parse_value(dirname) or parse_fs(dirname)
-    if an is None:
-        return None
-    return an
+    return parse_value(dirname) or parse_fs(dirname)

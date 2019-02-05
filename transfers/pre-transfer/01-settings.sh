@@ -3,18 +3,22 @@
 #-----------------------------------------------------------------------------------------------------------------------
 # Settings global
 #-----------------------------------------------------------------------------------------------------------------------
-NA=""
-WORK=""
+CATALOG_URL=""
 DIRNAME=""
-FILESETS=""
-PYTHON=""
 EMAIL_HOST_USER=""
 EMAIL_HOST=""
 EMAIL_TO=""
 EMAIL_HOST_PASSWORD=""
-CATALOG_URL=""
+FILESETS=""
+IIIF_SERVICE=""
+NA=""
+OAI_SERVICE=""
 PID_WEBSERVICE_KEY=""
 PID_WEBSERVICE_ENDPOINT=""
+PYTHON=""
+SRU_SERVICE=""
+WORK=""
+
 
 #-----------------------------------------------------------------------------------------------------------------------
 # load variables setup

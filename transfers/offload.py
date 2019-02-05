@@ -90,16 +90,21 @@ def file(entry, see_files):
     return False
 
 
-def main(source_location, candidates, see_files, log_name):
+def main(source_location, candidates, see_files, offload_check, log_name):
     global LOGGER
     LOGGER = logging.getLogger(log_name)
 
     selected = set()
     for entry in candidates:
         location_entry = source_location + '/' + entry.decode('utf-8')
-        an = get_accession_number.parse(location_entry)
-        an_found = True # find_accession_number(an)
-        LOGGER.debug('offload location=' + location_entry + ' an=' + an)
-        if an and an_found and file(location_entry, see_files):
-            selected.add(entry)
+        if offload_check is True:
+            an = get_accession_number.parse(location_entry)
+            an_found = find_accession_number(an)
+            LOGGER.debug('offload location=' + location_entry + ' an=' + an)
+            if an and an_found and file(location_entry, see_files):
+                selected.add(entry)
+        else:
+            if file(location_entry, see_files):
+                selected.add(entry)
+
     return selected

@@ -7,13 +7,22 @@
 #
 # naming authority
 #  [ARCHIVAL INVENTORY].[NUMBER]/[GROUP (unique and repeatable)]/[ARCHIVAL INVENTORY].[NUMBER]_[SEQUENCE].[EXTENSION]
+#  [ARCHIVAL INVENTORY].[NUMBER]/[GROUP (unique and repeatable)]/[ARCHIVAL INVENTORY]_[SEQUENCE].[EXTENSION]
 #
-# Example: validate "10622/ARCH00842.1"
+# Example 1: validate "10622/ARCH00842.1"
 # 10622
 # ├── ARCH00842.1
 # │   └── preservation
 # │       ├── ARCH00842.1_0001.tif
 # │       └── ARCH00842.1_0002.tif
+#
+#
+# Example 2: validate "10622/N12345"
+# 10622
+# ├── N12345
+# │   └── preservation
+# │       ├── N12345_0001.tif
+# │       └── N12345_0002.tif
 
 import getopt
 import os
@@ -47,12 +56,13 @@ class ValidateFolder:
 
     def run(self):
         accession_id = os.path.basename(self.fileset)
-
         self.info("Accession ID = " + accession_id)
 
         if os.path.isfile(self.fileset):
             self.type = 'single'
-            return
+            self.error(Error.UNSUPPORTED_TYPE, Error.UNSUPPORTED_TYPE_MSG.format(accession_id))
+
+        self.type = 'archive' if "." in accession_id else 'ondemand'
 
         # --------------------------------------------------------------------------------------------------------------
         # Validate 1: must have content
@@ -96,13 +106,12 @@ class ValidateFolder:
         # Validate 5:
         # If there are folders with inventory numbers, all files should be in an inventory number folder
         # --------------------------------------------------------------------------------------------------------------
-        self.type = 'archive'
 
         # --------------------------------------------------------------------------------------------------------------
         # Validate 6:
         # All filenames should match the convention
         # --------------------------------------------------------------------------------------------------------------
-        pattern = '^[a-zA-Z0-9]+\\.[0-9]+_[0-9]*\\.[a-zA-Z]+$'
+        pattern = '^' + re.escape(accession_id) + '_[0-9]*\\.[a-zA-Z]+$'
         compiled_pattern = re.compile(pattern)
         for folder in folders:
             if folder in Preservation.FILE_GROUP:
@@ -185,7 +194,8 @@ class ValidateFolder:
                     expect = index + 1
                     actual = sorted_list[index]
                     if expect != actual:
-                        self.error(Error.SEQUENCE_INTERVAL_NOT_1, Error.SEQUENCE_INTERVAL_NOT_1_MSG.format(expect, actual))
+                        self.error(Error.SEQUENCE_INTERVAL_NOT_1,
+                                   Error.SEQUENCE_INTERVAL_NOT_1_MSG.format(expect, actual))
 
                 if self.report['error']:
                     return

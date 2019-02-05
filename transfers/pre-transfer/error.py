@@ -1,4 +1,7 @@
 class Error:
+    def __init__(self):
+        pass
+
     EMPTY_FOLDER = 1
     EMPTY_FOLDER_MSG = "Expecting content in folder '{}'"
     NO_GROUPS = 2
@@ -19,3 +22,5 @@ class Error:
     SEQUENCE_DOES_NOT_START_WITH_1_MSG = "Sequences must start with the number 1"
     SEQUENCE_INTERVAL_NOT_1 = 10
     SEQUENCE_INTERVAL_NOT_1_MSG = "Sequences should start from 1 and increment by 1. Expect {} but got {}"
+    UNSUPPORTED_TYPE = 11
+    UNSUPPORTED_TYPE_MSG = "Unsupported package type '{}'. Expect archival (dot) or scanned on demand (no dot)."

@@ -72,7 +72,6 @@ function identifiers {
         then
             for file in "$group"/*
             do
-
                 if [[ -z "$last" ]]
                 then
                     last="1"

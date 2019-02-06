@@ -135,7 +135,11 @@ function main {
                 mets "$fileset"
                 chown -R archivematica:archivematica "$fileset"
                 log "Move to pbind" "Move ${fileset} to pbind folder"
-                mv "$fileset" "${FILESETS}/pbind/"
+                archival_id=$(basename "$fileset")
+
+                # Mark that we want the PIDs
+                mkdir "${FILESETS}/${archival_id}"
+                mv "$fileset" "${FILESETS}/ready/"
             fi
         else
             echo "Ignoring file ${fileset}"

@@ -134,11 +134,13 @@ function main {
                 identifiers
                 mets "$fileset"
                 chown -R archivematica:archivematica "$fileset"
-                log "Move to pbind" "Move ${fileset} to pbind folder"
                 archival_id=$(basename "$fileset")
 
                 # Mark that we want the PIDs
-                mkdir "${FILESETS}/${archival_id}"
+                mkdir -p "${FILESETS}/pbind/${archival_id}"
+
+                # Move it to the ready folder
+                log "Move to ready" "Move ${fileset} to ready folder"
                 mv "$fileset" "${FILESETS}/ready/"
             fi
         else

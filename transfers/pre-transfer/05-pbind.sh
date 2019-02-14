@@ -55,7 +55,17 @@ function main {
 
             # Download the manifest
             manifest_json="${fileset}/manifest.json"
+            set +e
             wget "${IIIF_SERVICE}/iiif/presentation/${archival_id}/manifest" -O "$manifest_json"
+            rc=$?
+            if [[ "$rc" == 0 ]] && [[ -f "$manifest_json" ]]
+            then
+                echo "Ok"
+            else
+                echo "Unable to download manifest. Skipping..."
+                continue
+            fi
+            set -e
 
             # Determine the type of package...
             #   Image

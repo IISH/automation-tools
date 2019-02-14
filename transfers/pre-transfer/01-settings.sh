@@ -96,7 +96,7 @@ function queued {
     fileset="$1"
     work="$2"
     archival_id=$(basename "$fileset")
-    for queue in build fail pbind ready stage validate
+    for queue in build fail ready stage validate
     do
         if [[ -d "${FILESETS}/${queue}/${archival_id}" ]]
         then
